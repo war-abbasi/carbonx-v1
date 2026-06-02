@@ -46,7 +46,7 @@ export default function LoginPage() {
     >
       {/* Background */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'radial-gradient(ellipse 80% 70% at 30% 0%, rgba(var(--accent-rgb),0.1) 0%, transparent 60%), radial-gradient(ellipse 50% 50% at 80% 80%, rgba(200,168,75,0.06) 0%, transparent 50%)',
+        background: 'radial-gradient(ellipse 80% 70% at 30% 0%, rgba(var(--accent-rgb),0.08) 0%, transparent 60%), radial-gradient(ellipse 50% 50% at 80% 80%, rgba(var(--accent-warm-rgb),0.06) 0%, transparent 50%)',
       }} />
       <div className="absolute inset-0 bg-grid opacity-40 pointer-events-none" />
       <div className="orb orb-green  w-64 h-64 absolute top-20   left-10  opacity-25 animate-orb-1" />
@@ -83,8 +83,8 @@ export default function LoginPage() {
               className="flex-1 py-2 text-sm font-semibold rounded-lg transition-all"
               style={{
                 background: 'var(--accent)',
-                color: 'var(--bg)',
-                boxShadow: '0 0 12px rgba(var(--accent-rgb),0.35)',
+                color: '#ffffff',
+                boxShadow: '0 2px 10px rgba(var(--accent-rgb),0.28)',
               }}
             >
               Log In

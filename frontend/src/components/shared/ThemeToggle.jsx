@@ -10,7 +10,7 @@ export function ThemeToggle({ className = '' }) {
       aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
       className={`relative h-9 w-16 rounded-full border transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${className}`}
       style={{
-        background: theme === 'dark' ? 'rgba(46,204,113,0.12)' : 'rgba(34,168,92,0.1)',
+        background: 'rgba(var(--accent-rgb), 0.10)',
         borderColor: 'var(--border-strong)',
       }}
     >

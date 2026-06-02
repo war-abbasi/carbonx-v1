@@ -41,14 +41,14 @@ export default {
       },
 
       fontFamily: {
-        sans:    ['DM Sans',         'system-ui', 'sans-serif'],
-        display: ['Instrument Serif','Georgia',   'serif'],
-        mono:    ['JetBrains Mono',  'monospace'],
+        sans:    ['Manrope', 'system-ui', 'sans-serif'],
+        display: ['Sora', 'system-ui', 'sans-serif'],
+        mono:    ['IBM Plex Mono', 'monospace'],
       },
 
       backgroundImage: {
         'hero-gradient':
-          'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(var(--accent-rgb),0.18) 0%, transparent 60%), radial-gradient(ellipse 50% 40% at 0% 70%, rgba(var(--accent-rgb),0.06) 0%, transparent 50%), radial-gradient(ellipse 40% 40% at 100% 40%, rgba(200,168,75,0.04) 0%, transparent 50%)',
+          'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(var(--accent-rgb),0.12) 0%, transparent 60%), radial-gradient(ellipse 50% 40% at 0% 70%, rgba(var(--accent-rgb),0.05) 0%, transparent 50%), radial-gradient(ellipse 40% 40% at 100% 40%, rgba(196,149,42,0.05) 0%, transparent 50%)',
         'card-gradient':
           'linear-gradient(135deg, rgba(var(--accent-rgb),0.06) 0%, transparent 100%)',
       },

@@ -1,13 +1,14 @@
 import { cn } from '../../lib/utils';
 
+// All accent-based variants pull from CSS variables so they adapt to light/dark
 const variants = {
-  default: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  success: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  warning: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
-  gold: 'bg-gold-muted text-gold border-gold/30',
-  error: 'bg-red-500/15 text-red-400 border-red-500/30',
-  secondary: 'bg-white/5 text-emerald-300/60 border-white/10',
-  soon: 'badge-soon',
+  default:   'bg-[rgba(var(--accent-rgb),0.10)] text-[var(--accent-dark)] border-[rgba(var(--accent-rgb),0.22)]  dark:text-[var(--accent)]',
+  success:   'bg-[rgba(var(--accent-rgb),0.10)] text-[var(--accent-dark)] border-[rgba(var(--accent-rgb),0.22)]  dark:text-[var(--accent)]',
+  warning:   'bg-[rgba(196,149,42,0.12)] text-[#7C5A10] border-[rgba(196,149,42,0.28)] dark:text-[var(--accent-warm)]',
+  gold:      'bg-[rgba(139,94,60,0.10)]  text-[var(--accent-gold)]         border-[rgba(139,94,60,0.25)]',
+  error:     'bg-red-500/10 text-red-700 border-red-500/25 dark:text-red-400',
+  secondary: 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)]',
+  soon:      'badge-soon',
 };
 
 export function Badge({ variant = 'default', className, children, ...props }) {

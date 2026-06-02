@@ -30,7 +30,7 @@ export default function App() {
             backdropFilter: 'blur(12px)',
             boxShadow: 'var(--shadow-md)',
             fontSize: '14px',
-            fontFamily: '"DM Sans", sans-serif',
+            fontFamily: 'var(--font-sans)',
           },
           success: { iconTheme: { primary: 'var(--accent)', secondary: 'var(--bg)' } },
           error:   { iconTheme: { primary: 'var(--danger)', secondary: 'var(--bg)' } },
