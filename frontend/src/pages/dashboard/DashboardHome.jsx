@@ -1,128 +1,134 @@
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Factory, Target, TrendingDown, Leaf,
-  ArrowRight, Zap, BarChart3, FileText, Clock,
+  ArrowRight, Activity, BarChart3, MessageSquare,
+  Sparkles, ShieldCheck, CheckCircle, Circle,
+  ChevronRight, AlertCircle,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
-import { Badge }   from '../../components/ui/badge';
-import { Button }  from '../../components/ui/button';
 import { useAuthStore } from '../../store/authStore';
 import { formatDate }   from '../../utils/helpers';
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i = 0) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.5, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] },
-  }),
-};
+const fade = (i = 0) => ({
+  initial:  { opacity: 0, y: 16 },
+  animate:  { opacity: 1, y: 0  },
+  transition: { duration: 0.45, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] },
+});
+
+/* ── Shared white card ── */
+function Card({ className = '', style = {}, children }) {
+  return (
+    <div
+      className={`rounded-xl ${className}`}
+      style={{ background: '#ffffff', border: '1px solid #E5EAE8', ...style }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ── Stat card ── */
+function StatCard({ icon: Icon, label, value, unit, desc, accent, index }) {
+  return (
+    <motion.div {...fade(index)}>
+      <Card className="p-5 h-full">
+        <div className="flex items-start justify-between mb-4">
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center"
+            style={{ background: `${accent}14`, border: `1px solid ${accent}28` }}
+          >
+            <Icon className="h-5 w-5" style={{ color: accent }} />
+          </div>
+          <span
+            className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+            style={{ background: '#F4F6F4', color: '#9BAEA5', border: '1px solid #E5EAE8' }}
+          >
+            SOON
+          </span>
+        </div>
+        <p className="text-2xl font-bold mb-0.5" style={{ color: '#1A2118' }}>
+          {value}
+          <span className="text-sm font-normal ml-1" style={{ color: '#9BAEA5' }}>{unit}</span>
+        </p>
+        <p className="text-sm font-medium" style={{ color: '#3D5247' }}>{label}</p>
+        <p className="text-xs mt-1" style={{ color: '#9BAEA5' }}>{desc}</p>
+      </Card>
+    </motion.div>
+  );
+}
 
 const statCards = [
-  { label: 'Total Emissions', value: '—', unit: 'tCO₂e',  icon: Factory,    color: 'var(--accent)',      description: 'This quarter' },
-  { label: 'Monthly Target',  value: '—', unit: 'tCO₂e',  icon: Target,     color: 'var(--accent-gold)', description: 'Set your target' },
-  { label: 'Reduction Rate',  value: '—', unit: '%',       icon: TrendingDown, color: 'var(--accent)',    description: 'vs last period' },
-  { label: 'Carbon Credits',  value: '—', unit: 'units',   icon: Leaf,       color: 'var(--accent-gold)', description: 'Available balance' },
-];
-
-const quickActions = [
-  { icon: Zap,      title: 'AI Insights', description: 'Get AI-powered recommendations for reducing your footprint.', color: 'var(--accent)' },
-  { icon: BarChart3, title: 'Analytics',  description: 'Deep dive into emission trends, sources, and projections.',   color: 'var(--accent-gold)' },
-  { icon: FileText, title: 'Reports',     description: 'Generate GHG Protocol & ISO 14064 compliance reports.',       color: 'var(--accent-blue)' },
+  { icon: Factory,     label: 'Total Emissions', value: '—', unit: 'tCO₂e', desc: 'This quarter',   accent: '#2D6A4F' },
+  { icon: Target,      label: 'Monthly Target',  value: '—', unit: 'tCO₂e', desc: 'Not set yet',    accent: '#C4952A' },
+  { icon: TrendingDown, label: 'Reduction Rate', value: '—', unit: '%',     desc: 'vs last period', accent: '#2D6A4F' },
+  { icon: Leaf,        label: 'Carbon Credits',  value: '—', unit: 'units', desc: 'Available',      accent: '#8B5E3C' },
 ];
 
 const setupSteps = [
-  { label: 'Account Created',      done: true  },
-  { label: 'Connect Data Source',  done: false },
-  { label: 'Set Baseline',         done: false },
-  { label: 'Set Targets',          done: false },
+  { label: 'Create your account',          done: true  },
+  { label: 'Connect a data source',         done: false },
+  { label: 'Set emission baseline',         done: false },
+  { label: 'Configure reduction targets',   done: false },
+];
+
+const modules = [
+  { icon: Activity,      label: 'Activities',  href: '/dashboard/activities', desc: 'View all platform events and audit logs.',          accent: '#2D6A4F', bg: '#EAF4EE' },
+  { icon: BarChart3,     label: 'Analytics',   href: '/dashboard/analytics',  desc: 'Emission trends, sources, and projections.',        accent: '#C4952A', bg: '#FDF5E6' },
+  { icon: MessageSquare, label: 'AI Chat',     href: '/dashboard/chat',       desc: 'Ask your AI assistant anything about emissions.',   accent: '#2D6A4F', bg: '#EAF4EE' },
+  { icon: Sparkles,      label: 'AI Insights', href: '/dashboard/insights',   desc: 'AI-generated recommendations for reduction.',       accent: '#8B5E3C', bg: '#F9F2EC' },
+  { icon: ShieldCheck,   label: 'Admin Panel', href: '/dashboard/admin',      desc: 'Organization settings, users, and integrations.',   accent: '#C4952A', bg: '#FDF5E6' },
 ];
 
 export default function DashboardHome() {
-  const { user } = useAuthStore();
-  const greeting = (() => {
+  const { user }  = useAuthStore();
+  const navigate  = useNavigate();
+  const greeting  = (() => {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning';
     if (h < 17) return 'Good afternoon';
     return 'Good evening';
   })();
 
+  const completedSteps = setupSteps.filter((s) => s.done).length;
+  const progress = (completedSteps / setupSteps.length) * 100;
+
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
 
       {/* ── Welcome banner ── */}
-      <motion.div
-        initial="hidden" animate="visible" variants={fadeUp}
-        className="glass-card rounded-2xl p-6 sm:p-8 relative overflow-hidden"
-      >
-        {/* Decorative orbs */}
-        <div className="orb orb-green absolute -right-16 -top-16  w-56 h-56 opacity-20 pointer-events-none" />
-        <div className="orb orb-gold  absolute -right-4  -bottom-12 w-40 h-40 opacity-10 pointer-events-none" />
-
-        <div className="relative">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <motion.div {...fade(0)}>
+        <div
+          className="rounded-xl overflow-hidden relative"
+          style={{ background: 'linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)', padding: '28px 32px' }}
+        >
+          {/* Decorative dots pattern */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+          }} />
+          <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
-                {greeting},{' '}
-                <span style={{ color: 'var(--accent)' }}>{user?.name?.split(' ')[0] ?? 'there'}</span>
+              <p className="text-sm font-medium mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                {greeting}, <span className="text-white font-semibold">{user?.name?.split(' ')[0] ?? 'there'}</span>
               </p>
-              <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--text)' }}>
-                Welcome to{' '}
-                <span style={{ color: 'var(--accent)' }}>CarbonX</span>
+              <h1 className="text-2xl font-bold text-white">
+                Welcome to your Dashboard
               </h1>
-              <p className="text-sm mt-2 max-w-lg leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                Your carbon intelligence platform is ready. Once you connect your data sources, live
-                emissions tracking, AI predictions, and compliance reports will appear here.
+              <p className="text-sm mt-1.5 max-w-md" style={{ color: 'rgba(255,255,255,0.60)' }}>
+                Your carbon intelligence platform is ready. Connect data sources to begin real-time emissions tracking.
               </p>
             </div>
             <div className="flex-shrink-0 flex flex-col items-start sm:items-end gap-2">
-              <Badge variant="success">
-                <span
-                  className="h-1.5 w-1.5 rounded-full animate-pulse"
-                  style={{ background: 'var(--accent)' }}
-                />
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold"
+                style={{ background: 'rgba(255,255,255,0.12)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.2)' }}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
                 Platform Active
-              </Badge>
-              <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
+              </div>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
                 Member since {formatDate(user?.createdAt ?? new Date())}
               </p>
-            </div>
-          </div>
-
-          {/* Setup progress */}
-          <div className="mt-6 pt-5 border-t" style={{ borderColor: 'var(--border)' }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                Setup Progress
-              </span>
-              <span className="text-xs font-medium" style={{ color: 'var(--accent)' }}>1 / 4 complete</span>
-            </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface)' }}>
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{ width: '25%', background: 'var(--accent)', boxShadow: '0 0 8px rgba(var(--accent-rgb),0.5)' }}
-              />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-              {setupSteps.map((step) => (
-                <div key={step.label} className="flex items-center gap-2">
-                  <div
-                    className="h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{
-                      background: step.done ? 'rgba(var(--accent-rgb),0.15)' : 'var(--surface)',
-                      border: step.done ? '1px solid rgba(var(--accent-rgb),0.4)' : '1px solid var(--border)',
-                    }}
-                  >
-                    {step.done && (
-                      <svg className="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 8 8" style={{ color: 'var(--accent)' }}>
-                        <path d="M6.41 0L5 1.41 2.83 3.59 1.41 2.17 0 3.59l2.83 2.82 4.24-4.24L6.41 0z" />
-                      </svg>
-                    )}
-                  </div>
-                  <span className="text-xs" style={{ color: step.done ? 'var(--accent)' : 'var(--text-dim)' }}>
-                    {step.label}
-                  </span>
-                </div>
-              ))}
             </div>
           </div>
         </div>
@@ -130,118 +136,138 @@ export default function DashboardHome() {
 
       {/* ── Stat cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {statCards.map((stat, i) => {
-          const Icon = stat.icon;
-          return (
-            <motion.div key={stat.label} custom={i} initial="hidden" animate="visible" variants={fadeUp}>
-              <div className="glass-card rounded-2xl p-5 h-full">
-                <div className="flex items-start justify-between mb-4">
-                  <div
-                    className="p-2.5 rounded-xl"
-                    style={{
-                      background: `${stat.color}1a`,
-                      border: `1px solid ${stat.color}33`,
-                    }}
-                  >
-                    <Icon className="h-5 w-5" style={{ color: stat.color }} />
-                  </div>
-                  <Badge variant="soon">Soon</Badge>
-                </div>
-                <p className="text-3xl font-bold mb-1" style={{ color: 'var(--text)' }}>
-                  {stat.value}{' '}
-                  <span className="text-base font-normal" style={{ color: 'var(--text-dim)' }}>
-                    {stat.unit}
-                  </span>
-                </p>
-                <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>{stat.label}</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>{stat.description}</p>
-              </div>
-            </motion.div>
-          );
-        })}
+        {statCards.map((s, i) => (
+          <StatCard key={s.label} {...s} index={i + 1} />
+        ))}
       </div>
 
-      {/* ── Platform Modules ── */}
-      <motion.div custom={4} initial="hidden" animate="visible" variants={fadeUp}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>Platform Modules</h2>
-          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-dim)' }}>
-            <Clock className="h-3.5 w-3.5" /> Launching soon
-          </div>
-        </div>
-        <div className="grid sm:grid-cols-3 gap-4">
-          {quickActions.map((action, i) => {
-            const Icon = action.icon;
-            return (
-              <motion.div key={action.title} custom={5 + i} initial="hidden" animate="visible" variants={fadeUp}>
-                <Card className="h-full p-5 opacity-70 hover:opacity-90 transition-opacity">
-                  <div
-                    className="inline-flex p-2.5 rounded-xl mb-4"
-                    style={{ background: `${action.color}1a`, border: `1px solid ${action.color}33` }}
-                  >
-                    <Icon className="h-[18px] w-[18px]" style={{ color: action.color }} />
-                  </div>
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{action.title}</h3>
-                    <Badge variant="soon">Soon</Badge>
-                  </div>
-                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                    {action.description}
-                  </p>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
-      </motion.div>
+      {/* ── Two-column row ── */}
+      <div className="grid lg:grid-cols-3 gap-5">
 
-      {/* ── Recent activity ── */}
-      <motion.div custom={8} initial="hidden" animate="visible" variants={fadeUp}>
-        <Card className="p-6">
-          <CardHeader className="p-0 pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold">Recent Activity</CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs" disabled>
-                View all <ArrowRight className="h-3 w-3" />
-              </Button>
+        {/* Setup checklist (1/3) */}
+        <motion.div {...fade(5)}>
+          <Card className="p-6 h-full">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-sm font-semibold" style={{ color: '#1A2118' }}>Setup Checklist</h2>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ background: '#EAF4EE', color: '#2D6A4F' }}>
+                {completedSteps}/{setupSteps.length}
+              </span>
             </div>
-            <CardDescription className="text-xs">
-              Activity logs will appear here once data sources are connected.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
+
+            {/* Progress bar */}
+            <div className="h-1.5 rounded-full mb-5" style={{ background: '#F0EDE4' }}>
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${progress}%`, background: 'linear-gradient(90deg, #2D6A4F, #52B788)' }}
+              />
+            </div>
+
             <div className="space-y-3">
-              {[
-                { action: 'Account created',                  time: 'Just now', done: true  },
-                { action: 'Awaiting data source connection',  time: 'Pending',  done: false },
-                { action: 'AI model training',                time: 'Pending',  done: false },
-              ].map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-3 py-2 border-b last:border-0"
-                  style={{ borderColor: 'var(--border)' }}
-                >
-                  <div
-                    className="h-7 w-7 rounded-full flex items-center justify-center text-xs flex-shrink-0"
-                    style={{
-                      background: item.done ? 'rgba(var(--accent-rgb),0.12)' : 'var(--surface)',
-                      border: item.done ? '1px solid rgba(var(--accent-rgb),0.25)' : '1px solid var(--border)',
-                      color: item.done ? 'var(--accent)' : 'var(--text-dim)',
-                    }}
+              {setupSteps.map((step) => (
+                <div key={step.label} className="flex items-center gap-3">
+                  {step.done
+                    ? <CheckCircle className="h-4.5 w-4.5 flex-shrink-0" style={{ color: '#2D6A4F', width: '18px', height: '18px' }} />
+                    : <Circle className="h-4.5 w-4.5 flex-shrink-0" style={{ color: '#D1D9D5', width: '18px', height: '18px' }} />
+                  }
+                  <span
+                    className="text-sm"
+                    style={{ color: step.done ? '#2D6A4F' : '#7A9E8E', fontWeight: step.done ? 500 : 400 }}
                   >
-                    {item.done ? '✓' : '○'}
-                  </div>
-                  <p className="flex-1 text-sm truncate" style={{ color: 'var(--text-muted)' }}>
-                    {item.action}
-                  </p>
-                  <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-dim)' }}>
-                    {item.time}
+                    {step.label}
                   </span>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+
+            <button
+              className="mt-5 w-full py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-90"
+              style={{ background: '#2D6A4F', color: '#ffffff' }}
+              onClick={() => navigate('/dashboard/admin')}
+            >
+              Complete Setup
+            </button>
+          </Card>
+        </motion.div>
+
+        {/* Recent activity (2/3) */}
+        <motion.div {...fade(6)} className="lg:col-span-2">
+          <Card className="h-full">
+            <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E5EAE8' }}>
+              <h2 className="text-sm font-semibold" style={{ color: '#1A2118' }}>Recent Activity</h2>
+              <button
+                className="text-xs font-medium flex items-center gap-1 transition-colors"
+                style={{ color: '#2D6A4F' }}
+                onClick={() => navigate('/dashboard/activities')}
+              >
+                View all <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="divide-y" style={{ borderColor: '#F0EDE4' }}>
+              {[
+                { icon: CheckCircle,  title: 'Account created',               time: 'Just now',  status: 'done',    color: '#2D6A4F' },
+                { icon: AlertCircle,  title: 'Data source not connected',      time: 'Pending',   status: 'pending', color: '#C4952A' },
+                { icon: Sparkles,     title: 'AI model initialised',           time: '1 hr ago',  status: 'done',    color: '#2D6A4F' },
+                { icon: AlertCircle,  title: 'Baseline not configured',        time: 'Pending',   status: 'pending', color: '#C4952A' },
+                { icon: BarChart3,    title: 'First report queued',            time: 'Waiting',   status: 'pending', color: '#8B5E3C' },
+              ].map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <div key={idx} className="flex items-center gap-4 px-6 py-3.5">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${item.color}12`, border: `1px solid ${item.color}22` }}
+                    >
+                      <Icon className="h-4 w-4" style={{ color: item.color }} />
+                    </div>
+                    <p className="flex-1 text-sm" style={{ color: '#3D5247' }}>{item.title}</p>
+                    <span
+                      className="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+                      style={{
+                        background: item.status === 'done' ? '#EAF4EE' : '#FDF5E6',
+                        color: item.status === 'done' ? '#2D6A4F' : '#C4952A',
+                      }}
+                    >
+                      {item.time}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* ── Platform modules grid ── */}
+      <motion.div {...fade(7)}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold" style={{ color: '#1A2118' }}>Platform Modules</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {modules.map((m) => {
+            const Icon = m.icon;
+            return (
+              <button
+                key={m.label}
+                onClick={() => navigate(m.href)}
+                className="rounded-xl p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md group"
+                style={{ background: '#ffffff', border: '1px solid #E5EAE8', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+              >
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
+                  style={{ background: m.bg }}
+                >
+                  <Icon className="h-4.5 w-4.5" style={{ color: m.accent, width: '18px', height: '18px' }} />
+                </div>
+                <p className="text-sm font-semibold mb-1" style={{ color: '#1A2118' }}>{m.label}</p>
+                <p className="text-xs leading-relaxed" style={{ color: '#9BAEA5' }}>{m.desc}</p>
+                <div className="flex items-center gap-1 mt-3 text-xs font-medium" style={{ color: m.accent }}>
+                  Open <ArrowRight className="h-3 w-3" />
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </motion.div>
     </div>
   );

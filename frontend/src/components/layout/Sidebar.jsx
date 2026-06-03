@@ -1,100 +1,104 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Leaf, BarChart3, FileText, Zap,
-  Settings, LogOut, ChevronLeft, ChevronRight,
+  LayoutDashboard, Activity, BarChart3, MessageSquare,
+  Sparkles, ShieldCheck, Settings, LogOut,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn }    from '../../lib/utils';
 import { Logo }  from '../shared/Logo';
-import { Badge } from '../ui/badge';
 import { useAuth } from '../../hooks/useAuth';
 import { useApp }  from '../../context/AppContext';
 import iconImg from '../../assets/carbonx-icon.png';
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard',  href: '/dashboard',           exact: true },
-  { icon: Leaf,            label: 'Emissions',  href: '/dashboard/emissions', soon: true  },
-  { icon: BarChart3,       label: 'Analytics',  href: '/dashboard/analytics', soon: true  },
-  { icon: FileText,        label: 'Reports',    href: '/dashboard/reports',   soon: true  },
-  { icon: Zap,             label: 'AI Insights',href: '/dashboard/insights',  soon: true  },
+const NAV = [
+  { icon: LayoutDashboard, label: 'Overview',    href: '/dashboard',            exact: true },
+  { icon: Activity,        label: 'Activities',  href: '/dashboard/activities'              },
+  { icon: BarChart3,       label: 'Analytics',   href: '/dashboard/analytics'               },
+  { icon: MessageSquare,   label: 'AI Chat',     href: '/dashboard/chat'                    },
+  { icon: Sparkles,        label: 'AI Insights', href: '/dashboard/insights'                },
+  { icon: ShieldCheck,     label: 'Admin Panel', href: '/dashboard/admin'                   },
 ];
 
-const bottomItems = [
-  { icon: Settings, label: 'Settings', href: '/dashboard/settings', soon: true },
+const BOTTOM = [
+  { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
 ];
 
 export default function Sidebar() {
-  const { handleLogout } = useAuth();
+  const { handleLogout }               = useAuth();
   const { sidebarOpen, toggleSidebar } = useApp();
+  const navigate                       = useNavigate();
 
   return (
     <aside
       className={cn(
-        'relative flex flex-col h-screen transition-all duration-300 ease-in-out flex-shrink-0',
-        sidebarOpen ? 'w-64' : 'w-16'
+        'relative flex flex-col h-screen flex-shrink-0 transition-all duration-300 ease-in-out',
+        sidebarOpen ? 'w-60' : 'w-16'
       )}
-      style={{
-        background: 'var(--bg-elevated)',
-        borderRight: '1px solid var(--border)',
-      }}
+      style={{ background: '#ffffff', borderRight: '1px solid #E5EAE8' }}
     >
-      {/* Logo header */}
+      {/* ── Logo ── */}
       <div
-        className={cn(
-          'flex items-center h-16 px-4 flex-shrink-0',
-          sidebarOpen ? 'justify-between' : 'justify-center'
-        )}
-        style={{ borderBottom: '1px solid var(--border)' }}
+        className={cn('flex items-center h-16 px-4 flex-shrink-0', sidebarOpen ? 'gap-3' : 'justify-center')}
+        style={{ borderBottom: '1px solid #E5EAE8' }}
       >
         {sidebarOpen ? (
-          <Logo className="h-7" />
+          <>
+            <img src={iconImg} alt="CarbonX" className="h-7 w-7 object-contain flex-shrink-0" />
+            <span className="font-bold text-base tracking-tight" style={{ color: '#1B4332' }}>CarbonX</span>
+          </>
         ) : (
           <img src={iconImg} alt="CarbonX" className="h-7 w-7 object-contain" />
         )}
-        <button
-          onClick={toggleSidebar}
-          className={cn(
-            'p-1.5 rounded-lg transition-all',
-            !sidebarOpen && 'absolute -right-3.5 top-5 z-10 shadow-lg'
-          )}
-          style={{
-            color: 'var(--text-muted)',
-            background: !sidebarOpen ? 'var(--bg-elevated)' : 'transparent',
-            border: !sidebarOpen ? '1px solid var(--border)' : 'none',
-          }}
-          aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-        >
-          {sidebarOpen
-            ? <ChevronLeft className="h-4 w-4" />
-            : <ChevronRight className="h-4 w-4" />
-          }
-        </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto overflow-x-hidden">
-        {navItems.map((item) => {
+      {/* ── Collapse toggle ── */}
+      <button
+        onClick={toggleSidebar}
+        className="absolute -right-3 top-[72px] z-10 h-6 w-6 rounded-full flex items-center justify-center shadow-sm transition-colors hover:opacity-80"
+        style={{ background: '#ffffff', border: '1px solid #E5EAE8', color: '#6B8F7A' }}
+        aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+      >
+        {sidebarOpen
+          ? <ChevronLeft className="h-3.5 w-3.5" />
+          : <ChevronRight className="h-3.5 w-3.5" />
+        }
+      </button>
+
+      {/* ── Nav ── */}
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-0.5">
+        {sidebarOpen && (
+          <p className="px-3 mb-2 text-[0.6rem] font-semibold uppercase tracking-[0.12em]" style={{ color: '#9BAEA5' }}>
+            Navigation
+          </p>
+        )}
+        {NAV.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
               key={item.href}
               to={item.href}
               end={item.exact}
+              title={!sidebarOpen ? item.label : undefined}
               className={({ isActive }) =>
                 cn(
-                  'nav-link',
-                  isActive && !item.soon && 'active',
-                  item.soon && 'opacity-50 cursor-default pointer-events-none',
-                  !sidebarOpen && 'justify-center px-2'
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
+                  !sidebarOpen && 'justify-center px-2',
+                  isActive
+                    ? 'text-[#1B4332] bg-[#EAF4EE]'
+                    : 'text-[#5A7A6D] hover:text-[#1B4332] hover:bg-[#F4FAF6]'
                 )
               }
-              onClick={(e) => item.soon && e.preventDefault()}
-              title={!sidebarOpen ? item.label : undefined}
+              style={({ isActive }) =>
+                isActive ? { borderLeft: '3px solid #2D6A4F', paddingLeft: sidebarOpen ? '9px' : '5px' } : { borderLeft: '3px solid transparent' }
+              }
             >
-              <Icon className="flex-shrink-0" style={{ height: '18px', width: '18px' }} />
-              {sidebarOpen && (
+              {({ isActive }) => (
                 <>
-                  <span className="flex-1 truncate">{item.label}</span>
-                  {item.soon && <Badge variant="soon">Soon</Badge>}
+                  <Icon
+                    className="flex-shrink-0"
+                    style={{ width: '17px', height: '17px', color: isActive ? '#2D6A4F' : '#7A9E8E' }}
+                  />
+                  {sidebarOpen && <span className="truncate">{item.label}</span>}
                 </>
               )}
             </NavLink>
@@ -102,45 +106,40 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom section */}
-      <div
-        className="px-2 pb-4 pt-4 space-y-1"
-        style={{ borderTop: '1px solid var(--border)' }}
-      >
-        {bottomItems.map((item) => {
+      {/* ── Bottom ── */}
+      <div className="px-2 pb-4 space-y-0.5" style={{ borderTop: '1px solid #E5EAE8', paddingTop: '12px' }}>
+        {BOTTOM.map((item) => {
           const Icon = item.icon;
           return (
             <button
               key={item.href}
+              onClick={() => navigate(item.href)}
+              title={!sidebarOpen ? item.label : undefined}
               className={cn(
-                'nav-link w-full',
-                item.soon && 'opacity-50 cursor-default',
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+                'text-[#5A7A6D] hover:text-[#1B4332] hover:bg-[#F4FAF6]',
                 !sidebarOpen && 'justify-center px-2'
               )}
-              title={!sidebarOpen ? item.label : undefined}
+              style={{ borderLeft: '3px solid transparent' }}
             >
-              <Icon className="flex-shrink-0" style={{ height: '18px', width: '18px' }} />
-              {sidebarOpen && (
-                <>
-                  <span className="flex-1 truncate text-left">{item.label}</span>
-                  {item.soon && <Badge variant="soon">Soon</Badge>}
-                </>
-              )}
+              <Icon style={{ width: '17px', height: '17px', color: '#7A9E8E', flexShrink: 0 }} />
+              {sidebarOpen && <span className="truncate">{item.label}</span>}
             </button>
           );
         })}
 
         <button
           onClick={handleLogout}
+          title={!sidebarOpen ? 'Sign Out' : undefined}
           className={cn(
-            'nav-link w-full transition-colors',
+            'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+            'hover:bg-red-50',
             !sidebarOpen && 'justify-center px-2'
           )}
-          style={{ color: 'var(--danger)' }}
-          title={!sidebarOpen ? 'Sign Out' : undefined}
+          style={{ color: '#DC2626', borderLeft: '3px solid transparent' }}
         >
-          <LogOut className="flex-shrink-0" style={{ height: '18px', width: '18px' }} />
-          {sidebarOpen && <span className="flex-1 text-left">Sign Out</span>}
+          <LogOut style={{ width: '17px', height: '17px', flexShrink: 0 }} />
+          {sidebarOpen && <span>Sign Out</span>}
         </button>
       </div>
     </aside>
