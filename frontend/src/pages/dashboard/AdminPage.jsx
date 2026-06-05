@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Building2, Users, CreditCard, Plug, Save,
-  CheckCircle, ExternalLink, ChevronRight,
+  CheckCircle, ShieldCheck, ShieldOff, Trash2,
+  Loader2, AlertCircle, UserPlus,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { adminApi }     from '../../api/adminApi';
 import { getInitials }  from '../../utils/helpers';
 
 function Card({ className = '', style = {}, children }) {
@@ -100,43 +102,171 @@ function OrgTab({ user }) {
   );
 }
 
-/* ── Users tab ── */
-function UsersTab({ user }) {
+/* ── Users tab (live data) ── */
+function UsersTab({ currentUser }) {
+  const [users,    setUsers]   = useState([]);
+  const [loading,  setLoading] = useState(true);
+  const [error,    setError]   = useState('');
+  const [updating, setUpdating] = useState(null); // userId being updated
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      setError('');
+      const { data } = await adminApi.listUsers();
+      setUsers(data.data ?? []);
+    } catch (e) {
+      setError(e?.response?.data?.message ?? 'Failed to load users.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const toggleRole = async (u) => {
+    const newRole = u.role === 'ADMIN' ? 'USER' : 'ADMIN';
+    setUpdating(u.id);
+    try {
+      await adminApi.updateRole(u.id, newRole);
+      setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, role: newRole } : x));
+    } catch (e) {
+      setError(e?.response?.data?.message ?? 'Failed to update role.');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const removeUser = async (u) => {
+    if (!window.confirm(`Remove ${u.name}? This cannot be undone.`)) return;
+    setUpdating(u.id);
+    try {
+      await adminApi.deleteUser(u.id);
+      setUsers((prev) => prev.filter((x) => x.id !== u.id));
+    } catch (e) {
+      setError(e?.response?.data?.message ?? 'Failed to delete user.');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   return (
     <Card>
       <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E5EAE8' }}>
-        <h3 className="text-sm font-semibold" style={{ color: '#1A2118' }}>Team Members</h3>
-        <button
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition-all hover:opacity-90"
-          style={{ background: '#2D6A4F' }}
-        >
-          + Invite Member
-        </button>
-      </div>
-      <div className="divide-y" style={{ borderColor: '#F0EDE4' }}>
-        {/* Current user */}
-        <div className="flex items-center gap-4 px-6 py-4">
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-semibold text-sm text-white"
-            style={{ background: '#2D6A4F' }}
-          >
-            {getInitials(user?.name)}
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold" style={{ color: '#1A2118' }}>{user?.name}</p>
-            <p className="text-xs" style={{ color: '#9BAEA5' }}>{user?.email}</p>
-          </div>
-          <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: '#EAF4EE', color: '#2D6A4F' }}>
-            Admin
-          </span>
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: '#1A2118' }}>Team Members</h3>
+          <p className="text-xs mt-0.5" style={{ color: '#9BAEA5' }}>{users.length} account{users.length !== 1 ? 's' : ''}</p>
         </div>
-        {/* Invite placeholder */}
-        <div className="px-6 py-6 text-center">
-          <p className="text-sm" style={{ color: '#9BAEA5' }}>
-            Invite team members to collaborate on emission tracking and reporting.
-          </p>
+        <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg" style={{ background: '#F4F6F4', color: '#9BAEA5', border: '1px solid #E5EAE8' }}>
+          <UserPlus className="h-3.5 w-3.5" /> Invite coming soon
         </div>
       </div>
+
+      {error && (
+        <div className="mx-5 mt-4 px-3 py-2 rounded-lg flex items-center gap-2 text-xs"
+          style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+          <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" /> {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#9BAEA5' }} />
+        </div>
+      ) : (
+        <>
+          {/* Column headers */}
+          <div className="grid grid-cols-12 gap-2 px-6 py-2 text-[10px] font-bold uppercase tracking-wider"
+            style={{ borderBottom: '1px solid #F0EDE4', color: '#9BAEA5' }}>
+            <div className="col-span-5">User</div>
+            <div className="col-span-2 hidden sm:block text-right">Entries</div>
+            <div className="col-span-2 hidden sm:block text-right">CO₂ (kg)</div>
+            <div className="col-span-2 text-center">Role</div>
+            <div className="col-span-1"></div>
+          </div>
+
+          <div className="divide-y" style={{ borderColor: '#F0EDE4' }}>
+            {users.map((u) => {
+              const isMe   = u.id === currentUser?.id;
+              const busy   = updating === u.id;
+              return (
+                <div key={u.id} className="grid grid-cols-12 gap-2 items-center px-6 py-3.5"
+                  style={{ background: isMe ? '#F8FAF8' : 'transparent' }}>
+
+                  {/* Avatar + name */}
+                  <div className="col-span-5 flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
+                      style={{ background: u.role === 'ADMIN' ? '#2D6A4F' : '#8B9E95' }}>
+                      {getInitials(u.name)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: '#1A2118' }}>
+                        {u.name}{isMe && <span className="text-[10px] font-normal ml-1.5" style={{ color: '#2D6A4F' }}>(you)</span>}
+                      </p>
+                      <p className="text-xs truncate" style={{ color: '#9BAEA5' }}>{u.email}</p>
+                    </div>
+                  </div>
+
+                  {/* Entries */}
+                  <div className="col-span-2 text-right hidden sm:block">
+                    <span className="text-xs" style={{ color: '#7A9E8E' }}>{u.entryCount}</span>
+                  </div>
+
+                  {/* Carbon total */}
+                  <div className="col-span-2 text-right hidden sm:block">
+                    <span className="text-xs font-semibold" style={{ color: '#3D5247' }}>{u.totalKg}</span>
+                  </div>
+
+                  {/* Role badge */}
+                  <div className="col-span-2 flex justify-center">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={u.role === 'ADMIN'
+                        ? { background: '#EAF4EE', color: '#2D6A4F' }
+                        : { background: '#F4F6F4', color: '#9BAEA5', border: '1px solid #E5EAE8' }}>
+                      {u.role}
+                    </span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="col-span-1 flex items-center justify-end gap-1">
+                    {!isMe && (
+                      <>
+                        <button
+                          onClick={() => toggleRole(u)}
+                          disabled={busy}
+                          title={u.role === 'ADMIN' ? 'Remove admin' : 'Make admin'}
+                          className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 disabled:opacity-40"
+                          style={{ color: u.role === 'ADMIN' ? '#C4952A' : '#2D6A4F' }}>
+                          {busy
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : u.role === 'ADMIN'
+                              ? <ShieldOff className="h-3.5 w-3.5" />
+                              : <ShieldCheck className="h-3.5 w-3.5" />
+                          }
+                        </button>
+                        <button
+                          onClick={() => removeUser(u)}
+                          disabled={busy}
+                          title="Delete user"
+                          className="p-1.5 rounded-lg transition-colors hover:bg-red-50 disabled:opacity-40"
+                          style={{ color: '#DC2626' }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="px-6 py-3 text-xs" style={{ borderTop: '1px solid #E5EAE8', color: '#9BAEA5' }}>
+            <ShieldCheck className="h-3 w-3 inline mr-1" style={{ color: '#2D6A4F' }} />
+            Shield icon = promote to Admin &nbsp;·&nbsp;
+            <ShieldOff className="h-3 w-3 inline mr-1" style={{ color: '#C4952A' }} />
+            Outline = remove Admin role
+          </div>
+        </>
+      )}
     </Card>
   );
 }
@@ -274,7 +404,7 @@ export default function AdminPage() {
         transition={{ duration: 0.3 }}
       >
         {tab === 'org'          && <OrgTab         user={user} />}
-        {tab === 'users'        && <UsersTab        user={user} />}
+        {tab === 'users'        && <UsersTab        currentUser={user} />}
         {tab === 'billing'      && <BillingTab />}
         {tab === 'integrations' && <IntegrationsTab />}
       </motion.div>
