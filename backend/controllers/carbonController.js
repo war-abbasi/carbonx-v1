@@ -1,0 +1,70 @@
+const {
+  createEntry, getUserEntries, getLeaderboard,
+  getUserSummary, FACTORS,
+} = require('../services/carbonService');
+const { successResponse, errorResponse } = require('../utils/response');
+
+/* POST /api/carbon/entries */
+async function submitEntry(req, res, next) {
+  try {
+    const { category, subCategory, quantity, description, entryDate } = req.body;
+    if (!category || !subCategory || quantity == null) {
+      return errorResponse(res, 'category, subCategory and quantity are required.', 400);
+    }
+    if (isNaN(quantity) || quantity <= 0) {
+      return errorResponse(res, 'quantity must be a positive number.', 400);
+    }
+    const entry = await createEntry({
+      userId: req.user.id,
+      category,
+      subCategory,
+      quantity: parseFloat(quantity),
+      description,
+      entryDate,
+    });
+    return successResponse(res, entry, 'Carbon entry recorded.', 201);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/* GET /api/carbon/entries */
+async function getMyEntries(req, res, next) {
+  try {
+    const limit  = parseInt(req.query.limit) || 20;
+    const result = await getUserEntries(req.user.id, limit);
+    return successResponse(res, result, 'Entries fetched.');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/* GET /api/carbon/summary */
+async function getSummary(req, res, next) {
+  try {
+    const summary = await getUserSummary(req.user.id);
+    return successResponse(res, summary, 'Summary fetched.');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/* GET /api/carbon/leaderboard?period=all|week|month */
+async function leaderboard(req, res, next) {
+  try {
+    const period = ['all', 'week', 'month'].includes(req.query.period)
+      ? req.query.period
+      : 'all';
+    const data = await getLeaderboard(period);
+    return successResponse(res, data, 'Leaderboard fetched.');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/* GET /api/carbon/factors — return emission factor catalogue */
+async function getFactors(req, res) {
+  return successResponse(res, FACTORS, 'Emission factors fetched.');
+}
+
+module.exports = { submitEntry, getMyEntries, getSummary, leaderboard, getFactors };

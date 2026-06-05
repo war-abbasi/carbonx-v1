@@ -5,18 +5,18 @@ import {
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn }    from '../../lib/utils';
-import { Logo }  from '../shared/Logo';
 import { useAuth } from '../../hooks/useAuth';
 import { useApp }  from '../../context/AppContext';
+import { useAuthStore } from '../../store/authStore';
 import iconImg from '../../assets/carbonx-icon.png';
 
-const NAV = [
-  { icon: LayoutDashboard, label: 'Overview',    href: '/dashboard',            exact: true },
-  { icon: Activity,        label: 'Activities',  href: '/dashboard/activities'              },
-  { icon: BarChart3,       label: 'Analytics',   href: '/dashboard/analytics'               },
-  { icon: MessageSquare,   label: 'AI Chat',     href: '/dashboard/chat'                    },
-  { icon: Sparkles,        label: 'AI Insights', href: '/dashboard/insights'                },
-  { icon: ShieldCheck,     label: 'Admin Panel', href: '/dashboard/admin'                   },
+const ALL_NAV = [
+  { icon: LayoutDashboard, label: 'Overview',    href: '/dashboard',            exact: true, adminOnly: false },
+  { icon: Activity,        label: 'Activities',  href: '/dashboard/activities',              adminOnly: false },
+  { icon: BarChart3,       label: 'Analytics',   href: '/dashboard/analytics',               adminOnly: false },
+  { icon: MessageSquare,   label: 'AI Chat',     href: '/dashboard/chat',                    adminOnly: false },
+  { icon: Sparkles,        label: 'AI Insights', href: '/dashboard/insights',                adminOnly: false },
+  { icon: ShieldCheck,     label: 'Admin Panel', href: '/dashboard/admin',                   adminOnly: true  },
 ];
 
 const BOTTOM = [
@@ -27,6 +27,9 @@ export default function Sidebar() {
   const { handleLogout }               = useAuth();
   const { sidebarOpen, toggleSidebar } = useApp();
   const navigate                       = useNavigate();
+  const { user }                       = useAuthStore();
+  const isAdmin                        = user?.role === 'ADMIN';
+  const NAV                            = ALL_NAV.filter((n) => !n.adminOnly || isAdmin);
 
   return (
     <aside

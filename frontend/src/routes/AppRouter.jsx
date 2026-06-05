@@ -18,6 +18,7 @@ import InsightsPage    from '../pages/dashboard/InsightsPage';
 import AdminPage       from '../pages/dashboard/AdminPage';
 
 import ProtectedRoute  from './ProtectedRoute';
+import AdminRoute      from './AdminRoute';
 import PublicRoute     from './PublicRoute';
 import Navbar          from '../components/layout/Navbar';
 
@@ -66,7 +67,7 @@ export default function AppRouter() {
         <Route path="analytics"      element={<AnalyticsPage />} />
         <Route path="chat"           element={<ChatPage />} />
         <Route path="insights"       element={<InsightsPage />} />
-        <Route path="admin"          element={<AdminPage />} />
+        <Route path="admin"          element={<AdminRoute><AdminPage /></AdminRoute>} />
       </Route>
 
       {/* Catch-all */}

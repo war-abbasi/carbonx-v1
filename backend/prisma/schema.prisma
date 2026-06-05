@@ -11,15 +11,33 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            Int           @id @default(autoincrement())
+  name          String
+  email         String        @unique
+  password      String
+  role          Role          @default(USER)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  carbonEntries CarbonEntry[]
 
   @@map("users")
+}
+
+model CarbonEntry {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String   // commute | energy | travel | food | other
+  subCategory String?  // car | bus | train | electricity | flight | beef | etc.
+  scope       String   @default("personal") // scope1 | scope2 | scope3 | personal
+  valueKg     Float    // CO₂e in kg
+  quantity    Float    // raw input (km, kWh, hours, meals…)
+  unit        String   // km | kWh | m3 | meal | hour
+  description String?
+  entryDate   DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@map("carbon_entries")
 }
 
 enum Role {
