@@ -3,7 +3,9 @@ const { prisma } = require('../config/db');
 const { generateToken } = require('../utils/jwt');
 
 async function registerUser({ name, email, password }) {
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (existing) {
     const err = new Error('An account with this email already exists.');
     err.statusCode = 409;
@@ -13,7 +15,7 @@ async function registerUser({ name, email, password }) {
   const hashedPassword = await bcrypt.hash(password, 12);
 
   const user = await prisma.user.create({
-    data: { name, email, password: hashedPassword },
+    data: { name: name.trim(), email: normalizedEmail, password: hashedPassword },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
   });
 
@@ -22,7 +24,9 @@ async function registerUser({ name, email, password }) {
 }
 
 async function loginUser({ email, password }) {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (!user) {
     const err = new Error('Invalid email or password.');
     err.statusCode = 401;

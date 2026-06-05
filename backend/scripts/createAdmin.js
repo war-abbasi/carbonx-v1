@@ -21,7 +21,7 @@ function arg(flag, fallback) {
 }
 
 const name     = arg('--name',     'Admin User');
-const email    = arg('--email',    'admin@carbonx.com');
+const email    = arg('--email',    'admin@carbonx.com').trim().toLowerCase();
 const password = arg('--password', 'Admin@CarbonX1');
 
 /* ── Validate password strength ─────────────── */
