@@ -14,7 +14,7 @@ import { getInitials } from '../../utils/helpers';
 const TITLES = {
   '/dashboard':            'Overview',
   '/dashboard/activities': 'Activities',
-  '/dashboard/analytics':  'AI Analytics',
+  '/dashboard/analytics':  'Analytics',
   '/dashboard/chat':       'AI Chat',
   '/dashboard/insights':   'AI Insights',
   '/dashboard/forecast':   'Emission Forecast',
