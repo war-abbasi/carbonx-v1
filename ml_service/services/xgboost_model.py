@@ -69,12 +69,15 @@ class XGBoostForecaster:
         # Trend
         df['trend'] = np.arange(len(df))
 
-        # Employee count
-        if employee_counts:
+        # Employee count — ALWAYS produce both columns so the feature set is
+        # identical between training and forecasting (otherwise XGBoost raises a
+        # feature_names mismatch when employee_counts is empty at train time but
+        # populated at forecast time).
+        if employee_counts and len(employee_counts) == len(df):
             df['employee_count'] = employee_counts
-            df['emissions_per_employee'] = df['emissions'] / (df['employee_count'] + 1)
         else:
             df['employee_count'] = 100  # Default
+        df['emissions_per_employee'] = df['emissions'] / (df['employee_count'] + 1)
 
         # Year-over-year change
         df['yoy_change'] = df['emissions'].diff(12)
