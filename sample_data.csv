@@ -1,0 +1,31 @@
+date,category,sub_category,quantity,description,user_email
+2026-01-05,commute,car_petrol,25,Morning commute,wardahzia4@gmail.com
+2026-01-10,energy,electricity,150,Monthly electricity bill,wardahzia4@gmail.com
+2026-01-15,food,beef,3,Weekly beef meals,wardahzia4@gmail.com
+2026-01-20,commute,car_petrol,28,Daily commute,wardahzia4@gmail.com
+2026-01-25,travel,flight_short,800,Karachi to Lahore,wardahzia4@gmail.com
+2026-02-03,commute,car_petrol,26,Morning commute,wardahzia4@gmail.com
+2026-02-08,energy,electricity,160,Electricity usage,wardahzia4@gmail.com
+2026-02-12,food,beef,4,Weekly meals,wardahzia4@gmail.com
+2026-02-18,commute,bus,60,Bus travel monthly,wardahzia4@gmail.com
+2026-02-22,energy,natural_gas,10,Gas heating,wardahzia4@gmail.com
+2026-03-02,commute,car_petrol,27,Morning commute,wardahzia4@gmail.com
+2026-03-07,energy,electricity,155,Electricity bill,wardahzia4@gmail.com
+2026-03-12,food,beef,3,Weekly beef meals,wardahzia4@gmail.com
+2026-03-18,commute,car_petrol,30,Daily driving,wardahzia4@gmail.com
+2026-03-25,travel,flight_short,750,Lahore to Islamabad,wardahzia4@gmail.com
+2026-04-01,commute,car_petrol,29,Morning commute,wardahzia4@gmail.com
+2026-04-08,energy,electricity,170,Electricity usage,wardahzia4@gmail.com
+2026-04-14,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-04-20,commute,bus,50,Public transport,wardahzia4@gmail.com
+2026-04-28,energy,diesel_gen,15,Generator usage,wardahzia4@gmail.com
+2026-05-03,commute,car_petrol,28,Morning commute,wardahzia4@gmail.com
+2026-05-10,energy,electricity,180,High AC usage,wardahzia4@gmail.com
+2026-05-15,food,beef,4,Weekly meals,wardahzia4@gmail.com
+2026-05-21,commute,motorbike,20,Motorbike trips,wardahzia4@gmail.com
+2026-05-28,travel,flight_long,2400,Karachi to Dubai,wardahzia4@gmail.com
+2026-06-02,commute,car_petrol,30,Morning commute,wardahzia4@gmail.com
+2026-06-08,energy,electricity,195,Peak summer AC,wardahzia4@gmail.com
+2026-06-14,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-06-20,commute,car_petrol,32,Daily driving,wardahzia4@gmail.com
+2026-06-26,energy,lpg,5,LPG cylinder,wardahzia4@gmail.com
