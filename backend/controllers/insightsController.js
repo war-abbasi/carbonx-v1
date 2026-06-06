@@ -635,17 +635,8 @@ async function getForecast(req, res, next) {
     const sortedMonths = Object.keys(monthlyData).sort();
     const historicalData = sortedMonths.map(m => monthlyData[m]);
 
-    // Get user org for employee data
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { organizationId: true }
-    });
-
-    let employeeCounts = [];
-    if (user?.organizationId) {
-      // In a real app, fetch employee history; for now use default
-      employeeCounts = Array(historicalData.length).fill(100);
-    }
+    // NOTE: the User model has no organizationId/employee fields, so we don't
+    // pass employee counts. The ML service handles an empty list gracefully.
 
     // Call ML service
     const forecast = await mlService.generateForecast(
@@ -653,7 +644,7 @@ async function getForecast(req, res, next) {
       historicalData,
       {
         months: months,
-        employeeCounts: employeeCounts,
+        employeeCounts: [],
         startDate: sortedMonths[0]
       }
     );
@@ -672,7 +663,7 @@ async function getForecast(req, res, next) {
 
   } catch (err) {
     logger.error(`Forecast error: ${err.message}`);
-    return errorResponse(res, `Failed to generate forecast: ${err.message}`, 500);
+    return errorResponse(res, 'Failed to generate forecast', 500);
   }
 }
 
@@ -691,7 +682,7 @@ async function compareModels(req, res, next) {
 
     // Get all organization carbon entries
     const entries = await prisma.carbonEntry.findMany({
-      select: { entryDate: true, valueKg: true, organizationId: true },
+      select: { entryDate: true, valueKg: true },
       orderBy: { entryDate: 'asc' }
     });
 
