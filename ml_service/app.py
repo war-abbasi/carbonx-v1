@@ -4,11 +4,13 @@ Forecasting engine with Prophet, XGBoost, and Holt-Winters comparison
 """
 
 from flask import Flask, jsonify, request
+from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 from datetime import datetime
 import logging
+import numpy as np
 
 from services.forecast_service import ForecastService
 from services.data_service import DataService
@@ -17,8 +19,28 @@ from services.model_comparison import ModelComparison
 # Load environment variables
 load_dotenv()
 
+
+class NumpyJSONProvider(DefaultJSONProvider):
+    """JSON provider that knows how to serialize numpy scalar/array types.
+
+    XGBoost and Prophet return numpy float32/float64 values; the stock JSON
+    encoder raises 'Object of type float32 is not JSON serializable'.
+    """
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
+
+
 # Initialize Flask app
 app = Flask(__name__)
+app.json = NumpyJSONProvider(app)
 CORS(app)
 
 # Configure logging
