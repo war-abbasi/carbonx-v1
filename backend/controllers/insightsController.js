@@ -586,9 +586,189 @@ Return ONLY a JSON object:
   } catch (err) { next(err); }
 }
 
+/* ════════════════════════════════════════════════
+   ML FORECASTING & PREDICTIONS
+   Powered by ML microservice (Prophet, XGBoost, Holt-Winters)
+════════════════════════════════════════════════ */
+
+const mlService = require('../api/mlServiceClient');
+
+/**
+ * Generate carbon emissions forecast
+ * GET /api/insights/forecast?months=12
+ */
+async function getForecast(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const months = Math.min(parseInt(req.query.months) || 12, 24); // Max 24 months
+
+    logger.info(`[Forecast] Generating forecast for user ${userId}`);
+
+    // Get user's carbon entries
+    const entries = await prisma.carbonEntry.findMany({
+      where: { userId },
+      select: { entryDate: true, valueKg: true },
+      orderBy: { entryDate: 'asc' }
+    });
+
+    // Check minimum data
+    if (entries.length < 2) {
+      return successResponse(res, {
+        success: false,
+        error: 'Insufficient data. Need at least 2 months of historical data.',
+        dataPoints: entries.length,
+        message: 'Log carbon entries to enable forecasting.'
+      }, 400);
+    }
+
+    // Group by month
+    const monthlyData = {};
+    entries.forEach(entry => {
+      const month = entry.entryDate.toISOString().slice(0, 7); // YYYY-MM
+      if (!monthlyData[month]) {
+        monthlyData[month] = 0;
+      }
+      monthlyData[month] += entry.valueKg;
+    });
+
+    const sortedMonths = Object.keys(monthlyData).sort();
+    const historicalData = sortedMonths.map(m => monthlyData[m]);
+
+    // Get user org for employee data
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { organizationId: true }
+    });
+
+    let employeeCounts = [];
+    if (user?.organizationId) {
+      // In a real app, fetch employee history; for now use default
+      employeeCounts = Array(historicalData.length).fill(100);
+    }
+
+    // Call ML service
+    const forecast = await mlService.generateForecast(
+      `org_${userId}`,
+      historicalData,
+      {
+        months: months,
+        employeeCounts: employeeCounts,
+        startDate: sortedMonths[0]
+      }
+    );
+
+    // Store in database for audit trail
+    await prisma.forecast.create({
+      data: {
+        userId,
+        organizationId: user?.organizationId,
+        bestModel: forecast.best_model || 'unknown',
+        forecastData: forecast,
+        monthsAhead: months
+      }
+    }).catch(err => logger.warn('Could not store forecast record:', err.message));
+
+    return successResponse(res, {
+      success: true,
+      forecast: forecast,
+      dataPoints: historicalData.length,
+      months: months,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (err) {
+    logger.error(`Forecast error: ${err.message}`);
+    return errorResponse(res, 'Failed to generate forecast', 500);
+  }
+}
+
+/**
+ * Compare all 3 ML models (Admin only)
+ * GET /api/insights/compare-models
+ */
+async function compareModels(req, res, next) {
+  try {
+    // Check admin permission
+    if (req.user.role !== 'ADMIN') {
+      return errorResponse(res, 'Only admins can compare models', 403);
+    }
+
+    logger.info('[Models] Comparing all 3 models');
+
+    // Get all organization carbon entries
+    const entries = await prisma.carbonEntry.findMany({
+      select: { entryDate: true, valueKg: true, organizationId: true },
+      orderBy: { entryDate: 'asc' }
+    });
+
+    if (entries.length < 12) {
+      return errorResponse(res, `Need 12+ months of data. Have ${entries.length} entries.`, 400);
+    }
+
+    // Group by month
+    const monthlyData = {};
+    entries.forEach(entry => {
+      const month = entry.entryDate.toISOString().slice(0, 7);
+      if (!monthlyData[month]) {
+        monthlyData[month] = 0;
+      }
+      monthlyData[month] += entry.valueKg;
+    });
+
+    const sortedMonths = Object.keys(monthlyData).sort();
+    const historicalData = sortedMonths.map(m => monthlyData[m]);
+
+    // Call ML service
+    const comparison = await mlService.compareModels(
+      `org_admin_${req.user.id}`,
+      historicalData,
+      { horizon: 12 }
+    );
+
+    // Get metrics table
+    const metrics = await mlService.getModelComparison();
+
+    return successResponse(res, {
+      success: true,
+      comparison: comparison,
+      metrics: metrics,
+      dataPoints: historicalData.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (err) {
+    logger.error(`Model comparison error: ${err.message}`);
+    return errorResponse(res, 'Failed to compare models', 500);
+  }
+}
+
+/**
+ * Check ML service health
+ * GET /api/insights/ml-health
+ */
+async function checkMLServiceHealth(req, res, next) {
+  try {
+    const health = await mlService.healthCheck();
+
+    if (health.status === 'available' || health.status === 'up') {
+      return successResponse(res, {
+        status: 'up',
+        mlService: health,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      return errorResponse(res, 'ML Service is unavailable', 503);
+    }
+
+  } catch (err) {
+    return errorResponse(res, 'ML Service health check failed', 503);
+  }
+}
+
 module.exports = {
   getRecommendations,
   listChallenges, joinChallenge, completeChallenge, leaveChallenge,
   getOffsetProjects,
   generateReport, getSuggestedGoals, suggestChallenge,
+  getForecast, compareModels, checkMLServiceHealth,
 };

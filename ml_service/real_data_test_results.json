@@ -1,0 +1,92 @@
+{
+  "ORG_001": {
+    "org_name": "National Assembly Office",
+    "sector": "Government",
+    "winner": "XGBoost",
+    "winner_rmse": 16.7477,
+    "prophet_rmse": 2313.4508,
+    "xgboost_rmse": 16.7477,
+    "holt_winters_rmse": 4476.107
+  },
+  "ORG_002": {
+    "org_name": "Tech Park Islamabad",
+    "sector": "IT",
+    "winner": "XGBoost",
+    "winner_rmse": 8.1022,
+    "prophet_rmse": 2008.0752,
+    "xgboost_rmse": 8.1022,
+    "holt_winters_rmse": 4009.8564
+  },
+  "ORG_003": {
+    "org_name": "Utility Services Dept",
+    "sector": "Public Utility",
+    "winner": "XGBoost",
+    "winner_rmse": 8.8963,
+    "prophet_rmse": 1653.5633,
+    "xgboost_rmse": 8.8963,
+    "holt_winters_rmse": 3733.568
+  },
+  "ORG_004": {
+    "org_name": "Green Energy Corp",
+    "sector": "Energy",
+    "winner": "XGBoost",
+    "winner_rmse": 13.847,
+    "prophet_rmse": 2267.8252,
+    "xgboost_rmse": 13.847,
+    "holt_winters_rmse": 5242.5964
+  },
+  "ORG_005": {
+    "org_name": "Metro Logistics",
+    "sector": "Logistics",
+    "winner": "XGBoost",
+    "winner_rmse": 11.0827,
+    "prophet_rmse": 1860.7229,
+    "xgboost_rmse": 11.0827,
+    "holt_winters_rmse": 8315.3245
+  },
+  "ORG_006": {
+    "org_name": "Healthcare Network",
+    "sector": "Healthcare",
+    "winner": "XGBoost",
+    "winner_rmse": 11.3436,
+    "prophet_rmse": 1312.7665,
+    "xgboost_rmse": 11.3436,
+    "holt_winters_rmse": 3688.1117
+  },
+  "ORG_007": {
+    "org_name": "University Campus",
+    "sector": "Education",
+    "winner": "XGBoost",
+    "winner_rmse": 11.5221,
+    "prophet_rmse": 1848.2285,
+    "xgboost_rmse": 11.5221,
+    "holt_winters_rmse": 3843.8064
+  },
+  "ORG_008": {
+    "org_name": "Smart City Admin",
+    "sector": "Smart City",
+    "winner": "XGBoost",
+    "winner_rmse": 6.281,
+    "prophet_rmse": 1763.8966,
+    "xgboost_rmse": 6.281,
+    "holt_winters_rmse": 3350.7273
+  },
+  "ORG_009": {
+    "org_name": "Banking HQ",
+    "sector": "Finance",
+    "winner": "XGBoost",
+    "winner_rmse": 12.0719,
+    "prophet_rmse": 2426.1087,
+    "xgboost_rmse": 12.0719,
+    "holt_winters_rmse": 5161.1097
+  },
+  "ORG_010": {
+    "org_name": "Manufacturing Unit",
+    "sector": "Industrial",
+    "winner": "XGBoost",
+    "winner_rmse": 4.09,
+    "prophet_rmse": 1852.3042,
+    "xgboost_rmse": 4.09,
+    "holt_winters_rmse": 3814.0475
+  }
+}

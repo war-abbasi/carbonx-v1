@@ -5,6 +5,7 @@ const {
   listChallenges, joinChallenge, completeChallenge, leaveChallenge,
   getOffsetProjects,
   generateReport, getSuggestedGoals, suggestChallenge,
+  getForecast, compareModels, checkMLServiceHealth,
 } = require('../controllers/insightsController');
 
 const router = Router();
@@ -17,9 +18,14 @@ router.patch('/challenges/:id/complete',    completeChallenge);
 router.delete('/challenges/:id/leave',      leaveChallenge);
 router.get('/offset-projects', authorize('ADMIN'), getOffsetProjects);
 
-/* New AI features */
+/* AI features */
 router.post('/report', authorize('ADMIN'),  generateReport);
 router.post('/goals',                       getSuggestedGoals);
 router.post('/challenge-suggestion',        suggestChallenge);
+
+/* ML Forecasting endpoints */
+router.get('/forecast',                     getForecast);                    // User forecast
+router.get('/compare-models', authorize('ADMIN'), compareModels);            // Compare all 3 models
+router.get('/ml-health',                    checkMLServiceHealth);           // ML service status
 
 module.exports = router;

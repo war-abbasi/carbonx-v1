@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: carbonx-db
+    environment:
+      POSTGRES_DB: carbonx
+      POSTGRES_USER: carbonx_user
+      POSTGRES_PASSWORD: carbonx_secure_password_change_me
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carbonx_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Node.js Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: carbonx-backend
+    environment:
+      DATABASE_URL: postgresql://carbonx_user:carbonx_secure_password_change_me@postgres:5432/carbonx
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_change_me}
+      PORT: 5000
+      ML_SERVICE_URL: http://ml-service:5001
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Python ML Service
+  ml-service:
+    build:
+      context: ./ml_service
+      dockerfile: Dockerfile
+    container_name: carbonx-ml
+    environment:
+      FLASK_ENV: production
+      ML_SERVICE_PORT: 5001
+      DATABASE_URL: postgresql://carbonx_user:carbonx_secure_password_change_me@postgres:5432/carbonx
+      LOG_LEVEL: INFO
+    ports:
+      - "5001:5001"
+    depends_on:
+      - postgres
+    volumes:
+      - ./ml_service:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # React Frontend (optional, if running locally)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: carbonx-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:5000
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: carbonx-network

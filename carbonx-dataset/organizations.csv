@@ -1,0 +1,11 @@
+org_id,org_name,sector,base_employees
+ORG_001,National Assembly Office,Government,182
+ORG_002,Tech Park Islamabad,IT,428
+ORG_003,Utility Services Dept,Public Utility,350
+ORG_004,Green Energy Corp,Energy,186
+ORG_005,Metro Logistics,Logistics,151
+ORG_006,Healthcare Network,Healthcare,268
+ORG_007,University Campus,Education,100
+ORG_008,Smart City Admin,Smart City,182
+ORG_009,Banking HQ,Finance,201
+ORG_010,Manufacturing Unit,Industrial,294
