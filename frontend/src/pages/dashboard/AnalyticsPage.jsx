@@ -10,10 +10,11 @@ import { useNavigate }  from 'react-router-dom';
 import { getInitials }  from '../../utils/helpers';
 
 /* ─── Shared card ─────────────────────────────── */
-function Card({ className = '', style = {}, children }) {
+function Card({ className = '', style = {}, children, ...rest }) {
   return (
     <div className={`rounded-xl ${className}`}
-      style={{ background: '#ffffff', border: '1px solid #E5EAE8', ...style }}>
+      style={{ background: '#ffffff', border: '1px solid #E5EAE8', ...style }}
+      {...rest}>
       {children}
     </div>
   );
