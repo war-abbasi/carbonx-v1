@@ -672,7 +672,7 @@ async function getForecast(req, res, next) {
 
   } catch (err) {
     logger.error(`Forecast error: ${err.message}`);
-    return errorResponse(res, 'Failed to generate forecast', 500);
+    return errorResponse(res, `Failed to generate forecast: ${err.message}`, 500);
   }
 }
 
