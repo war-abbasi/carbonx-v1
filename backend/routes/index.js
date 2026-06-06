@@ -2,12 +2,14 @@ const { Router } = require('express');
 const authRoutes   = require('./authRoutes');
 const carbonRoutes = require('./carbonRoutes');
 const adminRoutes  = require('./adminRoutes');
+const chatRoutes   = require('./chatRoutes');
 
 const router = Router();
 
 router.use('/auth',   authRoutes);
 router.use('/carbon', carbonRoutes);
 router.use('/admin',  adminRoutes);
+router.use('/chat',   chatRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

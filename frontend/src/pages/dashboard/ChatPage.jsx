@@ -1,219 +1,316 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, User, Info } from 'lucide-react';
+import { Send, Sparkles, User, RefreshCw, Copy, Check } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import iconImg from '../../assets/carbonx-icon.png';
+import toast from 'react-hot-toast';
 
-const INITIAL_MESSAGES = [
-  {
-    id: 1, role: 'assistant',
-    text: "Hello! I'm the CarbonX AI assistant. I can help you understand your emissions data, explain carbon accounting concepts, and suggest reduction strategies.\n\nOnce you connect a data source, I'll have access to your real emission figures and provide personalised insights. For now, ask me anything about carbon management!",
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-  },
-];
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-const QUICK_PROMPTS = [
-  'What is Scope 3 emissions?',
-  'How do I reduce my carbon footprint?',
-  'Explain the GHG Protocol',
-  'What is net-zero?',
-];
-
-const MOCK_REPLIES = {
-  default: "That's a great question. Once your data source is connected, I'll be able to give you a precise, personalised answer based on your actual emission figures. In the meantime, I can share general guidance — carbon accounting best practices, GHG Protocol methodology, or reduction strategy frameworks. What would you like to explore?",
-  scope: "**Scope 3 emissions** are indirect emissions that occur in a company's value chain — both upstream and downstream.\n\n• **Upstream**: Purchased goods, business travel, employee commuting\n• **Downstream**: Use of sold products, end-of-life treatment, investments\n\nScope 3 typically represents 70–90% of a company's total footprint, making it the biggest opportunity for reduction. The GHG Protocol Corporate Value Chain Standard provides the framework for measurement.",
-  ghg: "The **GHG Protocol** is the world's most widely used greenhouse gas accounting standard.\n\nIt provides guidance for measuring and managing emissions across three scopes (1, 2, 3) and is used by over 90% of Fortune 500 companies. CarbonX is fully aligned with GHG Protocol methodology for all reporting.",
-  netzero: "**Net-zero** means balancing the amount of greenhouse gases emitted with an equivalent amount removed from the atmosphere.\n\nAchieving net-zero requires:\n1. Deep emission reductions (at least 90%)\n2. Neutralising residual emissions via carbon removal\n3. Setting science-based targets aligned with 1.5°C pathway\n\nMany countries and companies have committed to net-zero by 2050.",
-  reduce: "Here are the highest-impact reduction strategies:\n\n**Energy** — Switch to renewable electricity (Scope 2), improve building efficiency\n**Transport** — Electrify fleet, reduce business air travel, enable remote work\n**Supply chain** — Engage suppliers on emission reduction, redesign logistics\n**Procurement** — Buy low-carbon materials, extend product lifetimes\n\nCarbonX's AI Insights module will prioritise these specifically for your organisation once data is connected.",
-};
-
-function pickReply(text) {
-  const t = text.toLowerCase();
-  if (t.includes('scope 3') || t.includes('scope3')) return MOCK_REPLIES.scope;
-  if (t.includes('ghg') || t.includes('protocol')) return MOCK_REPLIES.ghg;
-  if (t.includes('net-zero') || t.includes('net zero')) return MOCK_REPLIES.netzero;
-  if (t.includes('reduce') || t.includes('reduction') || t.includes('footprint')) return MOCK_REPLIES.reduce;
-  return MOCK_REPLIES.default;
+/* ── Initial greeting ─────────────────────────── */
+function makeGreeting() {
+  return {
+    id: 'init', role: 'assistant', done: true,
+    text: "Hello! I'm **CarbonX AI**, your carbon management assistant.\n\nI have access to your real emission data and can help you:\n• Understand your biggest emission sources\n• Explain GHG Protocol and carbon accounting\n• Suggest specific reduction strategies\n• Analyse your sustainability progress\n\nWhat would you like to know?",
+    time: now(),
+  };
 }
 
-/* Render markdown-ish text */
+function now() {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+/* ── Quick prompts ───────────────────────────── */
+const QUICK_PROMPTS = [
+  "What's my biggest emission source?",
+  "How can I reduce my Scope 1 emissions?",
+  "Explain Scope 3 emissions",
+  "What is net-zero and how do I reach it?",
+  "Compare my emission categories",
+  "Give me a 30-day reduction plan",
+];
+
+/* ── Markdown renderer ───────────────────────── */
 function MsgText({ text }) {
   return (
-    <div className="text-sm leading-relaxed" style={{ color: '#3D5247' }}>
+    <div className="text-sm leading-relaxed space-y-1" style={{ color: '#3D5247' }}>
       {text.split('\n').map((line, i) => {
-        if (!line.trim()) return <br key={i} />;
-        // bold
+        if (!line.trim()) return <div key={i} className="h-1" />;
         const parts = line.split(/\*\*(.*?)\*\*/g);
-        return (
-          <p key={i} className="mb-0.5">
-            {parts.map((p, j) => j % 2 === 1 ? <strong key={j} style={{ color: '#1A2118' }}>{p}</strong> : p)}
-          </p>
+        const rendered = parts.map((p, j) =>
+          j % 2 === 1
+            ? <strong key={j} style={{ color: '#1A2118' }}>{p}</strong>
+            : p
         );
+        if (line.startsWith('• ') || line.startsWith('- ')) {
+          return (
+            <div key={i} className="flex gap-2">
+              <span className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: '#2D6A4F' }} />
+              <span>{rendered.map((r, j) => j === 0 && typeof r === 'string' ? r.replace(/^[•\-] /, '') : r)}</span>
+            </div>
+          );
+        }
+        return <p key={i}>{rendered}</p>;
       })}
     </div>
   );
 }
 
+/* ── Copy button ─────────────────────────────── */
+function CopyBtn({ text }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button onClick={copy}
+      className="p-1 rounded transition-opacity opacity-0 group-hover:opacity-100"
+      style={{ color: '#9BAEA5' }} title="Copy">
+      {copied ? <Check className="h-3 w-3" style={{ color: '#2D6A4F' }} /> : <Copy className="h-3 w-3" />}
+    </button>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   PAGE
+═══════════════════════════════════════════════ */
 export default function ChatPage() {
-  const { user }   = useAuthStore();
-  const [messages, setMessages] = useState(INITIAL_MESSAGES);
-  const [input,    setInput]    = useState('');
-  const [loading,  setLoading]  = useState(false);
-  const bottomRef  = useRef(null);
+  const { token, user }  = useAuthStore();
+  const [messages,  setMessages]  = useState([makeGreeting()]);
+  const [input,     setInput]     = useState('');
+  const [streaming, setStreaming] = useState(false);
+  const [apiOk,     setApiOk]     = useState(true);
+  const bottomRef   = useRef(null);
+  const inputRef    = useRef(null);
+  const abortRef    = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+  }, [messages]);
 
-  const send = async (text) => {
+  const send = useCallback(async (text) => {
     const msg = text.trim();
-    if (!msg || loading) return;
+    if (!msg || streaming) return;
     setInput('');
-    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setMessages((m) => [...m, { id: Date.now(), role: 'user', text: msg, time: now }]);
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000 + Math.random() * 800));
-    setLoading(false);
-    setMessages((m) => [...m, {
-      id: Date.now() + 1, role: 'assistant',
-      text: pickReply(msg),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }]);
+
+    const userMsg = { id: Date.now(), role: 'user', text: msg, time: now(), done: true };
+    const assistantId = Date.now() + 1;
+    const assistantMsg = { id: assistantId, role: 'assistant', text: '', time: now(), done: false };
+
+    setMessages(prev => [...prev, userMsg, assistantMsg]);
+    setStreaming(true);
+
+    try {
+      /* Build history excluding the empty placeholder we just added */
+      const history = [...messages, userMsg].filter(m => m.done).map(m => ({
+        role: m.role, text: m.text,
+      }));
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const resp = await fetch(`${API_BASE}/chat`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body:   JSON.stringify({ messages: history }),
+        signal: controller.signal,
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ message: 'AI service error' }));
+        if (resp.status === 503) setApiOk(false);
+        throw new Error(err.message ?? `HTTP ${resp.status}`);
+      }
+
+      setApiOk(true);
+      const reader  = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.text) {
+              accumulated += data.text;
+              setMessages(prev => prev.map(m =>
+                m.id === assistantId ? { ...m, text: accumulated } : m
+              ));
+            }
+            if (data.done) {
+              setMessages(prev => prev.map(m =>
+                m.id === assistantId ? { ...m, done: true } : m
+              ));
+            }
+            if (data.error) throw new Error(data.error);
+          } catch (parseErr) { /* skip malformed chunk */ }
+        }
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      const errText = err.message ?? 'Something went wrong. Please try again.';
+      setMessages(prev => prev.map(m =>
+        m.id === assistantId
+          ? { ...m, text: `⚠️ ${errText}`, done: true }
+          : m
+      ));
+      toast.error(errText.length > 60 ? errText.slice(0, 60) + '…' : errText);
+    } finally {
+      setStreaming(false);
+      inputRef.current?.focus();
+    }
+  }, [messages, streaming, token]);
+
+  const reset = () => {
+    abortRef.current?.abort();
+    setMessages([makeGreeting()]);
+    setStreaming(false);
+    setInput('');
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)] animate-fade-in">
+    <div className="flex flex-col animate-fade-in" style={{ height: 'calc(100vh - 7rem)' }}>
 
-      {/* Header */}
-      <div
-        className="flex items-center gap-3 px-5 py-4 rounded-t-xl"
-        style={{ background: '#ffffff', border: '1px solid #E5EAE8', borderBottom: 'none' }}
-      >
+      {/* ── Header ── */}
+      <div className="flex items-center gap-3 px-5 py-3.5 rounded-t-xl"
+        style={{ background:'#ffffff', border:'1px solid #E5EAE8', borderBottom:'none' }}>
         <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ background: '#EAF4EE', border: '2px solid #C0DDD0' }}>
+          style={{ background:'#EAF4EE', border:'2px solid #C0DDD0' }}>
           <img src={iconImg} alt="AI" className="h-5 w-5 object-contain" />
         </div>
-        <div>
-          <p className="text-sm font-semibold" style={{ color: '#1A2118' }}>CarbonX AI Assistant</p>
-          <p className="text-xs flex items-center gap-1.5" style={{ color: '#2D6A4F' }}>
-            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-            Online · AI-powered
+        <div className="flex-1">
+          <p className="text-sm font-semibold" style={{ color:'#1A2118' }}>CarbonX AI</p>
+          <p className="text-xs flex items-center gap-1.5" style={{ color: apiOk ? '#2D6A4F' : '#C4952A' }}>
+            <span className={`h-1.5 w-1.5 rounded-full ${apiOk ? 'bg-green-400 animate-pulse' : 'bg-amber-400'}`} />
+            {apiOk ? 'Powered by Claude claude-haiku-4-5 · aware of your data' : 'API key not configured'}
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
-          style={{ background: '#FDF5E6', color: '#C4952A', border: '1px solid #F5E3C0' }}>
-          <Info className="h-3 w-3" /> Demo mode
-        </div>
+        <button onClick={reset}
+          className="p-2 rounded-lg transition-colors hover:bg-gray-50"
+          style={{ color:'#9BAEA5' }} title="New conversation">
+          <RefreshCw className="h-4 w-4" />
+        </button>
       </div>
 
-      {/* Messages */}
-      <div
-        className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
-        style={{ background: '#F8FAF8', border: '1px solid #E5EAE8', borderTop: 'none', borderBottom: 'none' }}
-      >
-        <AnimatePresence>
+      {/* ── Messages ── */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
+        style={{ background:'#F8FAF8', border:'1px solid #E5EAE8', borderTop:'none', borderBottom:'none' }}>
+
+        <AnimatePresence initial={false}>
           {messages.map((m) => (
-            <motion.div
-              key={m.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
-            >
+            <motion.div key={m.id}
+              initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }}
+              transition={{ duration:0.25 }}
+              className={`flex gap-3 ${m.role==='user'?'flex-row-reverse':''}`}>
+
               {/* Avatar */}
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                style={m.role === 'assistant'
-                  ? { background: '#EAF4EE', border: '1.5px solid #C0DDD0' }
-                  : { background: '#2D6A4F' }
-                }
-              >
-                {m.role === 'assistant'
-                  ? <Sparkles className="h-3.5 w-3.5" style={{ color: '#2D6A4F' }} />
-                  : <User className="h-3.5 w-3.5 text-white" />
-                }
+              <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                style={m.role==='assistant'
+                  ? { background:'#EAF4EE', border:'1.5px solid #C0DDD0' }
+                  : { background:'#2D6A4F' }}>
+                {m.role==='assistant'
+                  ? <Sparkles className="h-3.5 w-3.5" style={{ color:'#2D6A4F' }} />
+                  : <User className="h-3.5 w-3.5 text-white" />}
               </div>
 
               {/* Bubble */}
-              <div className={`max-w-[75%] ${m.role === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
-                <div
-                  className="px-4 py-3 rounded-2xl"
-                  style={m.role === 'assistant'
-                    ? { background: '#ffffff', border: '1px solid #E5EAE8', borderBottomLeftRadius: '6px' }
-                    : { background: '#2D6A4F', borderBottomRightRadius: '6px' }
-                  }
-                >
-                  {m.role === 'assistant'
-                    ? <MsgText text={m.text} />
+              <div className={`max-w-[78%] flex flex-col group ${m.role==='user'?'items-end':'items-start'}`}>
+                <div className="px-4 py-3 rounded-2xl"
+                  style={m.role==='assistant'
+                    ? { background:'#ffffff', border:'1px solid #E5EAE8', borderBottomLeftRadius:'6px' }
+                    : { background:'#2D6A4F', borderBottomRightRadius:'6px' }}>
+                  {m.role==='assistant'
+                    ? <>
+                        <MsgText text={m.text} />
+                        {/* Streaming cursor */}
+                        {!m.done && (
+                          <motion.span className="inline-block w-0.5 h-4 ml-0.5 align-middle rounded"
+                            style={{ background:'#9BAEA5' }}
+                            animate={{ opacity:[1,0] }}
+                            transition={{ duration:0.6, repeat:Infinity }} />
+                        )}
+                      </>
                     : <p className="text-sm text-white">{m.text}</p>
                   }
                 </div>
-                <span className="text-[10px] mt-1 px-1" style={{ color: '#BFCDC7' }}>{m.time}</span>
+                <div className="flex items-center gap-1.5 mt-1 px-1">
+                  <span className="text-[10px]" style={{ color:'#BFCDC7' }}>{m.time}</span>
+                  {m.role==='assistant' && m.done && m.text && <CopyBtn text={m.text} />}
+                </div>
               </div>
             </motion.div>
           ))}
         </AnimatePresence>
 
-        {/* Loading indicator */}
-        {loading && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
+        {/* Typing dots while waiting for first chunk */}
+        {streaming && messages[messages.length-1]?.text === '' && (
+          <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} className="flex gap-3">
             <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: '#EAF4EE', border: '1.5px solid #C0DDD0' }}>
-              <Sparkles className="h-3.5 w-3.5" style={{ color: '#2D6A4F' }} />
+              style={{ background:'#EAF4EE', border:'1.5px solid #C0DDD0' }}>
+              <Sparkles className="h-3.5 w-3.5" style={{ color:'#2D6A4F' }} />
             </div>
-            <div className="px-4 py-3 rounded-2xl flex items-center gap-1"
-              style={{ background: '#ffffff', border: '1px solid #E5EAE8', borderBottomLeftRadius: '6px' }}>
-              {[0,1,2].map((i) => (
-                <motion.span
-                  key={i} className="h-1.5 w-1.5 rounded-full"
-                  style={{ background: '#9BAEA5' }}
-                  animate={{ y: [0, -4, 0] }}
-                  transition={{ duration: 0.6, delay: i * 0.15, repeat: Infinity }}
-                />
+            <div className="px-4 py-3 rounded-2xl flex items-center gap-1.5"
+              style={{ background:'#ffffff', border:'1px solid #E5EAE8', borderBottomLeftRadius:'6px' }}>
+              {[0,1,2].map(i=>(
+                <motion.span key={i} className="h-1.5 w-1.5 rounded-full"
+                  style={{ background:'#9BAEA5' }}
+                  animate={{ y:[0,-5,0] }}
+                  transition={{ duration:0.55, delay:i*0.12, repeat:Infinity }} />
               ))}
             </div>
           </motion.div>
         )}
+
         <div ref={bottomRef} />
       </div>
 
-      {/* Quick prompts */}
-      <div
-        className="px-5 py-2.5 flex gap-2 overflow-x-auto"
-        style={{ background: '#ffffff', border: '1px solid #E5EAE8', borderTop: '1px solid #F0EDE4', borderBottom: 'none' }}
-      >
-        {QUICK_PROMPTS.map((p) => (
-          <button
-            key={p}
-            onClick={() => send(p)}
-            className="text-xs font-medium px-3 py-1.5 rounded-full flex-shrink-0 transition-all hover:opacity-80"
-            style={{ background: '#EAF4EE', color: '#2D6A4F', border: '1px solid #C0DDD0' }}
-          >
+      {/* ── Quick prompts ── */}
+      <div className="px-4 py-2.5 flex gap-2 overflow-x-auto scrollbar-hide"
+        style={{ background:'#ffffff', border:'1px solid #E5EAE8', borderTop:'1px solid #F0EDE4', borderBottom:'none' }}>
+        {QUICK_PROMPTS.map(p=>(
+          <button key={p} onClick={()=>send(p)} disabled={streaming}
+            className="text-xs font-medium px-3 py-1.5 rounded-full flex-shrink-0 transition-all hover:opacity-80 disabled:opacity-40"
+            style={{ background:'#EAF4EE', color:'#2D6A4F', border:'1px solid #C0DDD0' }}>
             {p}
           </button>
         ))}
       </div>
 
-      {/* Input */}
-      <div
-        className="flex items-center gap-3 px-4 py-3 rounded-b-xl"
-        style={{ background: '#ffffff', border: '1px solid #E5EAE8', borderTop: 'none' }}
-      >
+      {/* ── Input ── */}
+      <div className="flex items-center gap-3 px-4 py-3 rounded-b-xl"
+        style={{ background:'#ffffff', border:'1px solid #E5EAE8', borderTop:'none' }}>
         <input
+          ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send(input)}
-          placeholder="Ask anything about carbon management…"
+          onChange={e=>setInput(e.target.value)}
+          onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(input); }}}
+          placeholder="Ask anything about your carbon footprint…"
           className="flex-1 text-sm outline-none bg-transparent"
-          style={{ color: '#1A2118' }}
-          disabled={loading}
+          style={{ color:'#1A2118' }}
+          disabled={streaming}
         />
-        <button
-          onClick={() => send(input)}
-          disabled={!input.trim() || loading}
+        {streaming && (
+          <button onClick={()=>abortRef.current?.abort()}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+            style={{ background:'#FEF2F2', color:'#DC2626', border:'1px solid #FECACA' }}>
+            Stop
+          </button>
+        )}
+        <button onClick={()=>send(input)}
+          disabled={!input.trim()||streaming}
           className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40"
-          style={{ background: '#2D6A4F' }}
-        >
+          style={{ background:'#2D6A4F' }}>
           <Send className="h-4 w-4 text-white" />
         </button>
       </div>
