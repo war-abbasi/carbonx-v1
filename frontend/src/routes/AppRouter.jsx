@@ -13,6 +13,7 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import DashboardHome   from '../pages/dashboard/DashboardHome';
 import ActivitiesPage  from '../pages/dashboard/ActivitiesPage';
 import AnalyticsPage   from '../pages/dashboard/AnalyticsPage';
+import ForecastPage    from '../pages/dashboard/ForecastPage';
 import ChatPage        from '../pages/dashboard/ChatPage';
 import InsightsPage    from '../pages/dashboard/InsightsPage';
 import AdminPage       from '../pages/dashboard/AdminPage';
@@ -67,6 +68,7 @@ export default function AppRouter() {
         <Route path="analytics"      element={<AnalyticsPage />} />
         <Route path="chat"           element={<ChatPage />} />
         <Route path="insights"       element={<InsightsPage />} />
+        <Route path="forecast"       element={<ForecastPage />} />
         <Route path="admin"          element={<AdminRoute><AdminPage /></AdminRoute>} />
       </Route>
 

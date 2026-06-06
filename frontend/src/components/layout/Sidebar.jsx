@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Activity, BarChart3, MessageSquare,
   Sparkles, ShieldCheck, Settings, LogOut,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, BrainCircuit,
 } from 'lucide-react';
 import { cn }    from '../../lib/utils';
 import { useAuth } from '../../hooks/useAuth';
@@ -16,6 +16,7 @@ const ALL_NAV = [
   { icon: BarChart3,       label: 'Analytics',   href: '/dashboard/analytics',               adminOnly: false },
   { icon: MessageSquare,   label: 'AI Chat',     href: '/dashboard/chat',                    adminOnly: false },
   { icon: Sparkles,        label: 'AI Insights', href: '/dashboard/insights',                adminOnly: false },
+  { icon: BrainCircuit,    label: 'Forecast',    href: '/dashboard/forecast',                adminOnly: false },
   { icon: ShieldCheck,     label: 'Admin Panel', href: '/dashboard/admin',                   adminOnly: true  },
 ];
 

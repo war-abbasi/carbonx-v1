@@ -346,4 +346,137 @@ async function getAnalytics(userId, isAdmin = false, period = 'year') {
   };
 }
 
-module.exports = { createEntry, getUserEntries, getLeaderboard, getUserSummary, getAnalytics, FACTORS };
+/* ─── Linear Regression helpers ───────────────── */
+function linearRegression(points) {
+  // points: [{ x: number, y: number }, ...]
+  const n    = points.length;
+  const sumX  = points.reduce((s, p) => s + p.x, 0);
+  const sumY  = points.reduce((s, p) => s + p.y, 0);
+  const sumXY = points.reduce((s, p) => s + p.x * p.y, 0);
+  const sumX2 = points.reduce((s, p) => s + p.x * p.x, 0);
+
+  const denom    = n * sumX2 - sumX * sumX;
+  const slope    = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
+  const intercept = (sumY - slope * sumX) / n;
+
+  // R² — coefficient of determination
+  const yMean = sumY / n;
+  const ssTot = points.reduce((s, p) => s + (p.y - yMean) ** 2, 0);
+  const ssRes = points.reduce((s, p) => s + (p.y - (slope * p.x + intercept)) ** 2, 0);
+  const r2    = ssTot > 0 ? Math.max(0, 1 - ssRes / ssTot) : 1;
+
+  // Standard error of the estimate
+  const se    = n > 2 ? Math.sqrt(ssRes / (n - 2)) : Math.abs(slope * 0.2);
+  const xBar  = sumX / n;
+  const sxx   = points.reduce((s, p) => s + (p.x - xBar) ** 2, 0);
+
+  return { slope, intercept, r2, se, xBar, sxx, n };
+}
+
+function predictionInterval(model, xNew, zScore = 1.645) {
+  // 90% prediction interval: accounts for both line uncertainty + residual scatter
+  const { se, n, xBar, sxx } = model;
+  const factor = Math.sqrt(1 + 1 / n + (xNew - xBar) ** 2 / Math.max(sxx, 0.001));
+  return zScore * se * factor;
+}
+
+/* ─── Forecast endpoint ────────────────────────── */
+async function getForecast(userId, isAdmin = false, forecastMonths = 6) {
+  const userWhere = isAdmin ? {} : { userId };
+
+  // Pull ALL historical entries (not period-limited) for the best regression
+  const entries = await prisma.carbonEntry.findMany({
+    where:   userWhere,
+    select:  { valueKg: true, entryDate: true },
+    orderBy: { entryDate: 'asc' },
+  });
+
+  if (!entries.length) {
+    return { historical: [], forecast: [], model: null, error: 'No data yet. Log carbon entries to enable predictions.' };
+  }
+
+  // Aggregate by month
+  const monthMap = {};
+  entries.forEach((e) => {
+    const d   = new Date(e.entryDate);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthMap[key] = (monthMap[key] ?? 0) + e.valueKg;
+  });
+
+  // Build sorted historical array
+  const historical = Object.entries(monthMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, kg], i) => {
+      const [year, month] = key.split('-').map(Number);
+      const d = new Date(year, month - 1);
+      return {
+        index:  i + 1,
+        year,
+        month,
+        label:  d.toLocaleString('en', { month: 'short', year: '2-digit' }),
+        actual: fmt(kg),
+      };
+    });
+
+  if (historical.length < 2) {
+    return {
+      historical,
+      forecast: [],
+      model:    null,
+      error:    `Need at least 2 months of data — you have ${historical.length}. Keep logging!`,
+    };
+  }
+
+  // Run regression
+  const points = historical.map((h) => ({ x: h.index, y: h.actual }));
+  const model  = linearRegression(points);
+  const { slope, intercept, r2 } = model;
+
+  // Generate forecast for next N months
+  const last     = historical[historical.length - 1];
+  const lastDate = new Date(last.year, last.month - 1);
+  const forecast = [];
+
+  for (let i = 1; i <= forecastMonths; i++) {
+    const x         = last.index + i;
+    const predicted = Math.max(0, slope * x + intercept);
+    const margin    = predictionInterval(model, x);
+    const futureD   = new Date(lastDate);
+    futureD.setMonth(futureD.getMonth() + i);
+
+    forecast.push({
+      index:     x,
+      year:      futureD.getFullYear(),
+      month:     futureD.getMonth() + 1,
+      label:     futureD.toLocaleString('en', { month: 'short', year: '2-digit' }),
+      predicted: fmt(predicted),
+      lower:     fmt(Math.max(0, predicted - margin)),
+      upper:     fmt(predicted + margin),
+    });
+  }
+
+  // Model quality assessment
+  const confidence = r2 >= 0.90 ? 'Very High' : r2 >= 0.70 ? 'High' : r2 >= 0.50 ? 'Moderate' : 'Low';
+  const trend      = slope >  1  ? 'Increasing' : slope < -1 ? 'Decreasing' : 'Stable';
+  const trendColor = slope >  1  ? '#DC2626'    : slope < -1 ? '#2D6A4F'    : '#C4952A';
+
+  return {
+    historical,
+    forecast,
+    model: {
+      type:          'Ordinary Least Squares — Linear Regression',
+      slope:         fmt(slope),
+      intercept:     fmt(intercept),
+      r2:            parseFloat(r2.toFixed(4)),
+      r2Pct:         parseFloat((r2 * 100).toFixed(1)),
+      confidence,
+      trend,
+      trendColor,
+      monthlyChange: fmt(slope),   // kg CO₂e change per month
+      dataPoints:    historical.length,
+      forecastMonths,
+    },
+  };
+}
+
+module.exports = { createEntry, getUserEntries, getLeaderboard, getUserSummary, getAnalytics, getForecast, FACTORS };

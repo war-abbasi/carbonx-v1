@@ -17,6 +17,7 @@ const TITLES = {
   '/dashboard/analytics':  'Analytics',
   '/dashboard/chat':       'AI Chat',
   '/dashboard/insights':   'AI Insights',
+  '/dashboard/forecast':   'Emission Forecast',
   '/dashboard/admin':      'Admin Panel',
   '/dashboard/settings':   'Settings',
 };

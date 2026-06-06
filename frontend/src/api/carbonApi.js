@@ -13,8 +13,11 @@ export const carbonApi = {
   /** Get leaderboard  period: 'all' | 'week' | 'month' */
   getLeaderboard: (period = 'all') => api.get(`/carbon/leaderboard?period=${period}`),
 
-  /** Get analytics  period: 'year' | '6months' | '3months' */
+  /** Get analytics  period: 'year' | '6months' | '30days' | '7days' */
   getAnalytics: (period = 'year') => api.get(`/carbon/analytics?period=${period}`),
+
+  /** Get linear-regression emission forecast  months: 1–12 */
+  getForecast: (months = 6) => api.get(`/carbon/forecast?months=${months}`),
 
   /** Get emission factor catalogue */
   getFactors: () => api.get('/carbon/factors'),

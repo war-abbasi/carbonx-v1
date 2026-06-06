@@ -1,6 +1,6 @@
 const {
   createEntry, getUserEntries, getLeaderboard,
-  getUserSummary, getAnalytics, FACTORS,
+  getUserSummary, getAnalytics, getForecast, FACTORS,
 } = require('../services/carbonService');
 const { successResponse, errorResponse } = require('../utils/response');
 
@@ -75,9 +75,21 @@ async function analytics(req, res, next) {
   }
 }
 
+/* GET /api/carbon/forecast?months=6 */
+async function forecast(req, res, next) {
+  try {
+    const months  = Math.min(12, Math.max(1, parseInt(req.query.months) || 6));
+    const isAdmin = req.user.role === 'ADMIN';
+    const data    = await getForecast(req.user.id, isAdmin, months);
+    return successResponse(res, data, 'Forecast generated.');
+  } catch (err) {
+    next(err);
+  }
+}
+
 /* GET /api/carbon/factors — return emission factor catalogue */
 async function getFactors(req, res) {
   return successResponse(res, FACTORS, 'Emission factors fetched.');
 }
 
-module.exports = { submitEntry, getMyEntries, getSummary, leaderboard, analytics, getFactors };
+module.exports = { submitEntry, getMyEntries, getSummary, leaderboard, analytics, forecast, getFactors };
