@@ -406,44 +406,6 @@ function DataImportTab() {
         </p>
       </Card>
 
-      {/* Format spec */}
-      <Card className="p-4 text-xs space-y-2" style={{ background: '#F8FAF8', border: '1px solid #E5EAE8' }}>
-        <p className="font-bold" style={{ color: '#1A2118' }}>Required CSV Format</p>
-        <code className="block p-2 rounded-lg text-[11px] font-mono overflow-x-auto" style={{ background: '#1A2118', color: '#52B788' }}>
-          date,category,sub_category,quantity,description,user_email
-        </code>
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          {[
-            { col:'date', ex:'2026-01-15', note:'YYYY-MM-DD · past dates only' },
-            { col:'category', ex:'commute', note:'commute | energy | travel | food' },
-            { col:'sub_category', ex:'car_petrol', note:'see list below' },
-            { col:'quantity', ex:'25', note:'positive number (km / kWh / meal)' },
-            { col:'description', ex:'Daily commute', note:'optional — free text' },
-            { col:'user_email', ex:'john@co.com', note:'optional — blank = yourself' },
-          ].map(r => (
-            <div key={r.col} className="p-2 rounded-lg" style={{ background: '#fff', border: '1px solid #E5EAE8' }}>
-              <span className="font-bold font-mono" style={{ color: '#2D6A4F' }}>{r.col}</span>
-              <span className="ml-1.5" style={{ color: '#9BAEA5' }}>e.g. {r.ex}</span>
-              <p className="mt-0.5" style={{ color: '#7A9E8E' }}>{r.note}</p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 pt-2" style={{ borderTop: '1px solid #E5EAE8' }}>
-          <p className="font-semibold mb-1.5" style={{ color: '#1A2118' }}>Valid sub_category values:</p>
-          {Object.entries(VALID_CATS).map(([cat, subs]) => (
-            <div key={cat} className="mb-1">
-              <span className="font-bold capitalize" style={{ color: '#2D6A4F' }}>{cat}:</span>{' '}
-              <span className="font-mono text-xs" style={{ color: '#5A7A6D' }}>{subs.join(', ')}</span>
-            </div>
-          ))}
-        </div>
-        <button onClick={downloadSample}
-          className="flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80"
-          style={{ background: '#EAF4EE', color: '#2D6A4F' }}>
-          <Download className="h-3.5 w-3.5" /> Download sample CSV
-        </button>
-      </Card>
-
       {!result && (
         <>
           {/* Drop zone */}
@@ -459,6 +421,44 @@ function DataImportTab() {
               : <p className="text-sm font-semibold" style={{ color:'#5A7A6D' }}>Drop CSV here or click to browse</p>}
             <p className="text-xs mt-1.5" style={{ color:'#9BAEA5' }}>Max 1,000 rows per upload</p>
           </div>
+
+          {/* Format spec */}
+          <Card className="p-4 text-xs space-y-2" style={{ background: '#F8FAF8', border: '1px solid #E5EAE8' }}>
+            <p className="font-bold" style={{ color: '#1A2118' }}>Required CSV Format</p>
+            <code className="block p-2 rounded-lg text-[11px] font-mono overflow-x-auto" style={{ background: '#1A2118', color: '#52B788' }}>
+              date,category,sub_category,quantity,description,user_email
+            </code>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {[
+                { col:'date', ex:'2026-01-15', note:'YYYY-MM-DD · past dates only' },
+                { col:'category', ex:'commute', note:'commute | energy | travel | food' },
+                { col:'sub_category', ex:'car_petrol', note:'see list below' },
+                { col:'quantity', ex:'25', note:'positive number (km / kWh / meal)' },
+                { col:'description', ex:'Daily commute', note:'optional — free text' },
+                { col:'user_email', ex:'john@co.com', note:'optional — blank = yourself' },
+              ].map(r => (
+                <div key={r.col} className="p-2 rounded-lg" style={{ background: '#fff', border: '1px solid #E5EAE8' }}>
+                  <span className="font-bold font-mono" style={{ color: '#2D6A4F' }}>{r.col}</span>
+                  <span className="ml-1.5" style={{ color: '#9BAEA5' }}>e.g. {r.ex}</span>
+                  <p className="mt-0.5" style={{ color: '#7A9E8E' }}>{r.note}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 pt-2" style={{ borderTop: '1px solid #E5EAE8' }}>
+              <p className="font-semibold mb-1.5" style={{ color: '#1A2118' }}>Valid sub_category values:</p>
+              {Object.entries(VALID_CATS).map(([cat, subs]) => (
+                <div key={cat} className="mb-1">
+                  <span className="font-bold capitalize" style={{ color: '#2D6A4F' }}>{cat}:</span>{' '}
+                  <span className="font-mono text-xs" style={{ color: '#5A7A6D' }}>{subs.join(', ')}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={downloadSample}
+              className="flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80"
+              style={{ background: '#EAF4EE', color: '#2D6A4F' }}>
+              <Download className="h-3.5 w-3.5" /> Download sample CSV
+            </button>
+          </Card>
 
           {/* Preview */}
           {rows.length > 0 && (
