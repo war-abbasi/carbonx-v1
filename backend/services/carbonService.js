@@ -429,9 +429,95 @@ async function getAnalytics(userId, isAdmin = false, period = 'year') {
   };
 }
 
-/* ─── Linear Regression helpers ───────────────── */
+/* ─── Holt-Winters Exponential Smoothing ──────── */
+function holtWinters(data) {
+  // data: array of numbers (kg CO₂e per month)
+  // Returns: { fitted, forecast, trend, level, confidence }
+  const n = data.length;
+  if (n < 2) return null;
+
+  // Default hyperparameters
+  const alpha = 0.3; // level smoothing
+  const beta  = 0.1; // trend smoothing
+  const freq  = Math.min(12, n); // seasonal period (up to 12 months)
+  const hasSeasonality = n >= 12;
+  const gamma = hasSeasonality ? 0.1 : 0; // seasonal smoothing
+
+  let level = data[0];
+  let trend = (data[1] - data[0]) * 0.5; // initial trend
+  const seasonal = [];
+
+  // Initialize seasonal components if enough data
+  if (hasSeasonality) {
+    const avgPerSeason = Array(freq).fill(0);
+    const countsPerSeason = Array(freq).fill(0);
+    for (let i = 0; i < n; i++) {
+      avgPerSeason[i % freq] += data[i];
+      countsPerSeason[i % freq]++;
+    }
+    for (let i = 0; i < freq; i++) {
+      const avgLevel = data.slice(0, Math.min(freq, n)).reduce((s, x) => s + x, 0) / Math.min(freq, n);
+      seasonal[i] = (avgPerSeason[i] / countsPerSeason[i]) - avgLevel;
+    }
+  }
+
+  // Fit the model
+  const fitted = [];
+  for (let t = 0; t < n; t++) {
+    let prediction = level + trend;
+    if (hasSeasonality && t >= freq) prediction += seasonal[t % freq];
+
+    fitted.push(prediction);
+
+    // Update level
+    let obs = data[t];
+    if (hasSeasonality && t >= freq) obs = obs - seasonal[t % freq];
+    const oldLevel = level;
+    level = alpha * obs + (1 - alpha) * (oldLevel + trend);
+
+    // Update trend
+    trend = beta * (level - oldLevel) + (1 - beta) * trend;
+
+    // Update seasonal
+    if (hasSeasonality && t >= freq) {
+      seasonal[t % freq] = gamma * (data[t] - level) + (1 - gamma) * seasonal[t % freq];
+    }
+  }
+
+  // Residuals & RMSE
+  const residuals = fitted.map((f, i) => data[i] - f);
+  const rmse = Math.sqrt(residuals.reduce((s, r) => s + r ** 2, 0) / n);
+
+  // Calculate a pseudo-R² based on MAE reduction
+  const meanData = data.reduce((s, x) => s + x, 0) / n;
+  const maeNaive = data.slice(1).reduce((s, x, i) => s + Math.abs(x - data[i]), 0) / (n - 1);
+  const maeModel = residuals.reduce((s, r) => s + Math.abs(r), 0) / n;
+  const r2 = Math.max(0, 1 - maeModel / (maeNaive || 1));
+
+  // Forecast next 12 months
+  const forecast = [];
+  for (let i = 1; i <= 12; i++) {
+    let pred = level + trend * i;
+    if (hasSeasonality) pred += seasonal[(n + i - 1) % freq];
+    pred = Math.max(0, pred);
+    const confInt = 1.96 * rmse; // 95% CI
+    forecast.push({ pred, lower: Math.max(0, pred - confInt), upper: pred + confInt });
+  }
+
+  return {
+    fitted,
+    forecast,
+    level: fmt(level),
+    trend: fmt(trend),
+    rmse: fmt(rmse),
+    r2: parseFloat(r2.toFixed(4)),
+    hasSeasonality,
+    freq: hasSeasonality ? freq : 0,
+  };
+}
+
 function linearRegression(points) {
-  // points: [{ x: number, y: number }, ...]
+  // Fallback linear regression (kept for compatibility)
   const n    = points.length;
   const sumX  = points.reduce((s, p) => s + p.x, 0);
   const sumY  = points.reduce((s, p) => s + p.y, 0);
@@ -442,13 +528,11 @@ function linearRegression(points) {
   const slope    = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
   const intercept = (sumY - slope * sumX) / n;
 
-  // R² — coefficient of determination
   const yMean = sumY / n;
   const ssTot = points.reduce((s, p) => s + (p.y - yMean) ** 2, 0);
   const ssRes = points.reduce((s, p) => s + (p.y - (slope * p.x + intercept)) ** 2, 0);
   const r2    = ssTot > 0 ? Math.max(0, 1 - ssRes / ssTot) : 1;
 
-  // Standard error of the estimate
   const se    = n > 2 ? Math.sqrt(ssRes / (n - 2)) : Math.abs(slope * 0.2);
   const xBar  = sumX / n;
   const sxx   = points.reduce((s, p) => s + (p.x - xBar) ** 2, 0);
@@ -457,7 +541,6 @@ function linearRegression(points) {
 }
 
 function predictionInterval(model, xNew, zScore = 1.645) {
-  // 90% prediction interval: accounts for both line uncertainty + residual scatter
   const { se, n, xBar, sxx } = model;
   const factor = Math.sqrt(1 + 1 / n + (xNew - xBar) ** 2 / Math.max(sxx, 0.001));
   return zScore * se * factor;
@@ -510,54 +593,64 @@ async function getForecast(userId, isAdmin = false, forecastMonths = 6) {
     };
   }
 
-  // Run regression
-  const points = historical.map((h) => ({ x: h.index, y: h.actual }));
-  const model  = linearRegression(points);
-  const { slope, intercept, r2 } = model;
+  // Run Holt-Winters exponential smoothing
+  const actualValues = historical.map(h => h.actual);
+  const hwModel = holtWinters(actualValues);
 
-  // Generate forecast for next N months
+  if (!hwModel) {
+    return {
+      historical,
+      forecast: [],
+      model:    null,
+      error:    'Could not generate forecast. Try logging more consistent data.',
+    };
+  }
+
+  // Build forecast objects with dates
   const last     = historical[historical.length - 1];
   const lastDate = new Date(last.year, last.month - 1);
   const forecast = [];
 
-  for (let i = 1; i <= forecastMonths; i++) {
-    const x         = last.index + i;
-    const predicted = Math.max(0, slope * x + intercept);
-    const margin    = predictionInterval(model, x);
-    const futureD   = new Date(lastDate);
-    futureD.setMonth(futureD.getMonth() + i);
+  for (let i = 0; i < Math.min(forecastMonths, hwModel.forecast.length); i++) {
+    const { pred, lower, upper } = hwModel.forecast[i];
+    const futureD = new Date(lastDate);
+    futureD.setMonth(futureD.getMonth() + i + 1);
 
     forecast.push({
-      index:     x,
+      index:     last.index + i + 1,
       year:      futureD.getFullYear(),
       month:     futureD.getMonth() + 1,
       label:     futureD.toLocaleString('en', { month: 'short', year: '2-digit' }),
-      predicted: fmt(predicted),
-      lower:     fmt(Math.max(0, predicted - margin)),
-      upper:     fmt(predicted + margin),
+      predicted: fmt(pred),
+      lower:     fmt(lower),
+      upper:     fmt(upper),
     });
   }
 
   // Model quality assessment
-  const confidence = r2 >= 0.90 ? 'Very High' : r2 >= 0.70 ? 'High' : r2 >= 0.50 ? 'Moderate' : 'Low';
-  const trend      = slope >  1  ? 'Increasing' : slope < -1 ? 'Decreasing' : 'Stable';
-  const trendColor = slope >  1  ? '#DC2626'    : slope < -1 ? '#2D6A4F'    : '#C4952A';
+  const r2 = hwModel.r2;
+  const confidence = r2 >= 0.80 ? 'Very High' : r2 >= 0.60 ? 'High' : r2 >= 0.40 ? 'Moderate' : 'Low';
+  const trend      = hwModel.trend > 1  ? 'Increasing' : hwModel.trend < -1 ? 'Decreasing' : 'Stable';
+  const trendColor = hwModel.trend > 1  ? '#DC2626'    : hwModel.trend < -1 ? '#2D6A4F'    : '#C4952A';
+  const slope      = fmt(hwModel.trend);
 
   return {
     historical,
     forecast,
     model: {
-      type:          'Ordinary Least Squares — Linear Regression',
-      slope:         fmt(slope),
-      intercept:     fmt(intercept),
-      r2:            parseFloat(r2.toFixed(4)),
-      r2Pct:         parseFloat((r2 * 100).toFixed(1)),
+      type:           hwModel.hasSeasonality ? 'Holt-Winters (seasonal)' : 'Holt\'s Double Exponential Smoothing',
+      slope:          slope,
+      intercept:      fmt(hwModel.level),
+      r2:             r2,
+      r2Pct:          parseFloat((r2 * 100).toFixed(1)),
       confidence,
       trend,
       trendColor,
-      monthlyChange: fmt(slope),   // kg CO₂e change per month
-      dataPoints:    historical.length,
-      forecastMonths,
+      monthlyChange:  slope,
+      dataPoints:     historical.length,
+      forecastMonths: forecastMonths,
+      rmse:           hwModel.rmse,
+      seasonal:       hwModel.hasSeasonality ? `Yes (${hwModel.freq}-month period)` : 'No',
     },
   };
 }
