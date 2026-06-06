@@ -8,7 +8,6 @@ import {
   ExternalLink, Info, Zap, FileText, Download, Lightbulb,
 } from 'lucide-react';
 import { insightsApi } from '../../api/insightsApi';
-import { carbonApi }   from '../../api/carbonApi';
 import { useAuthStore } from '../../store/authStore';
 import { useNavigate }  from 'react-router-dom';
 import toast            from 'react-hot-toast';
@@ -456,8 +455,6 @@ function ChallengeCard({ c, onJoin, onComplete, onLeave, acting }) {
 /* ════════════════════════════════════════════════
    TAB 3 — FORECAST  (embedded from ForecastPage)
 ════════════════════════════════════════════════ */
-const FC_MONTHS = [3, 6, 9, 12];
-
 function ForecastChart({ historical, forecast: fc }) {
   const all = [...historical, ...fc];
   const W=720, H=200, PAD={t:20,b:32,l:12,r:12};
@@ -489,23 +486,72 @@ function ForecastChart({ historical, forecast: fc }) {
   );
 }
 
+/* Pretty model names + colors */
+const MODEL_META = {
+  prophet:      { name: 'Prophet',      color: '#2D6A4F' },
+  xgboost:      { name: 'XGBoost',      color: '#C4952A' },
+  holt_winters: { name: 'Holt-Winters', color: '#3B6CA8' },
+};
+
+/* 'YYYY-MM' → "Jul '26" */
+function monthLabel(ym) {
+  if (!ym || typeof ym !== 'string') return ym || '';
+  const [y, m] = ym.split('-');
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const idx = parseInt(m, 10) - 1;
+  if (isNaN(idx) || idx < 0 || idx > 11) return ym;
+  return `${names[idx]} '${(y || '').slice(2)}`;
+}
+
 function ForecastTab() {
-  const [months,  setMonths]  = useState(6);
-  const [data,    setData]    = useState(null);
+  const [months,  setMonths]  = useState(12);
+  const [payload, setPayload] = useState(null);   // full backend data object
   const [loading, setLoading] = useState(false);
+  const [errMsg,  setErrMsg]  = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setErrMsg('');
     try {
-      const { data: res } = await carbonApi.getForecast(months);
-      setData(res.data);
-    } catch { toast.error('Could not generate forecast'); }
-    finally { setLoading(false); }
+      const { data: res } = await insightsApi.getForecast(months);
+      setPayload(res.data);
+    } catch (e) {
+      const apiData = e?.response?.data;
+      // Backend returns { data: { success:false, error } } with 400 for insufficient data
+      if (apiData?.data) setPayload(apiData.data);
+      else { setErrMsg(apiData?.message || 'Could not generate forecast.'); setPayload(null); }
+    } finally { setLoading(false); }
   }, [months]);
 
   useEffect(() => { load(); }, [load]);
 
-  const m = data?.model;
+  // Parse ML response
+  const ml         = payload?.forecast;                       // raw ML service result
+  const bestKey    = ml?.best_model;
+  const models     = ml?.models || {};
+  const bestModel  = bestKey ? models[bestKey] : null;
+  const insufficient = payload && (payload.success === false || !bestModel);
+
+  // Build chart-ready arrays
+  const histRaw    = payload?.historical || [];
+  const chartHist  = histRaw.map(h => ({ actual: h.value, label: monthLabel(h.month) }));
+  const fcItems    = bestModel?.forecast || [];
+  const chartFc    = fcItems.map(f => ({
+    predicted: Math.round(f.predicted_emissions),
+    upper:     Math.round(f.upper_bound),
+    lower:     Math.round(f.lower_bound),
+    label:     monthLabel(f.month),
+  }));
+
+  // Trend (compare last historical vs last forecast)
+  let trend = 'Stable', trendColor = '#9BAEA5', monthlyChange = 0;
+  if (chartHist.length && chartFc.length) {
+    const lastHist = chartHist[chartHist.length - 1].actual;
+    const lastFc   = chartFc[chartFc.length - 1].predicted;
+    monthlyChange  = Math.round((lastFc - lastHist) / chartFc.length);
+    if (monthlyChange > 1)      { trend = 'Increasing'; trendColor = '#DC2626'; }
+    else if (monthlyChange < -1){ trend = 'Decreasing'; trendColor = '#2D6A4F'; }
+  }
 
   return (
     <div className="space-y-5">
@@ -513,7 +559,7 @@ function ForecastTab() {
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-xs font-semibold" style={{ color: '#9BAEA5' }}>Forecast horizon:</span>
         <div className="flex gap-1 p-1 rounded-lg" style={{ background: '#F4F6F4', border: '1px solid #E5EAE8' }}>
-          {FC_MONTHS.map(n => (
+          {[3, 6, 12, 24].map(n => (
             <button key={n} onClick={() => setMonths(n)}
               className="text-xs font-semibold px-3 py-1.5 rounded-md transition-all"
               style={n === months ? { background: '#2D6A4F', color: '#fff' } : { color: '#7A9E8E' }}>
@@ -530,80 +576,116 @@ function ForecastTab() {
 
       {/* Explanation */}
       <Card className="p-4 flex items-start gap-3" style={{ background: '#F8FAF8' }}>
-        <Info className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: '#2D6A4F' }} />
+        <BrainCircuit className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: '#2D6A4F' }} />
         <p className="text-xs leading-relaxed" style={{ color: '#5A7A6D' }}>
-          <strong style={{ color: '#1A2118' }}>12-month emissions forecast</strong> based on your historical data.
-          The shaded band shows the uncertainty range. More months of logging = more accurate predictions.
+          <strong style={{ color: '#1A2118' }}>AI-powered forecast.</strong> We train three models — Prophet,
+          XGBoost and Holt-Winters — on your data and automatically pick the most accurate one
+          (lowest RMSE ⭐). The shaded band is the 90% confidence range.
         </p>
       </Card>
 
       {loading && <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" style={{ color: '#9BAEA5' }} /></div>}
 
-      {!loading && data && (
+      {!loading && errMsg && (
+        <Card className="p-4 flex items-start gap-3" style={{ background:'#FEF2F2', border:'1px solid #FCA5A5' }}>
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color:'#DC2626' }} />
+          <p className="text-xs" style={{ color:'#991B1B' }}>{errMsg}</p>
+        </Card>
+      )}
+
+      {!loading && payload && insufficient && (
+        <Card>
+          <div className="flex flex-col items-center justify-center py-14 text-center px-8">
+            <BrainCircuit className="h-10 w-10 mb-3" style={{ color: '#C0DDD0' }} />
+            <h3 className="text-base font-semibold mb-2" style={{ color: '#1A2118' }}>Need more data</h3>
+            <p className="text-sm max-w-sm" style={{ color: '#9BAEA5' }}>
+              {payload.error ?? 'Log carbon entries across at least 2 different months to generate predictions.'}
+            </p>
+            <p className="text-xs font-mono mt-3 px-3 py-2 rounded-lg" style={{ background: '#F4F6F4', color: '#7A9E8E' }}>
+              Jan=120 kg, Feb=140 kg → predicts Mar ✓
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {!loading && payload && !insufficient && (
         <>
-          {(!data.model || data.historical.length < 2) ? (
-            <Card>
-              <div className="flex flex-col items-center justify-center py-14 text-center px-8">
-                <BrainCircuit className="h-10 w-10 mb-3" style={{ color: '#C0DDD0' }} />
-                <h3 className="text-base font-semibold mb-2" style={{ color: '#1A2118' }}>Need more data</h3>
-                <p className="text-sm max-w-sm" style={{ color: '#9BAEA5' }}>
-                  {data.error ?? 'Log carbon entries across at least 2 different months to generate predictions.'}
-                </p>
-                <p className="text-xs font-mono mt-3 px-3 py-2 rounded-lg" style={{ background: '#F4F6F4', color: '#7A9E8E' }}>
-                  Jan=120 kg, Feb=140 kg → predicts Mar=160 kg ✓
-                </p>
-              </div>
-            </Card>
-          ) : (
-            <>
-              {/* Trend indicator */}
-              <div className="flex gap-3 flex-wrap items-center">
-                <span className="text-sm font-bold" style={{ color: '#1A2118' }}>Your trend:</span>
-                <span className="text-sm font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5"
-                  style={{ background: `${m.trendColor}18`, color: m.trendColor }}>
-                  {m.trend === 'Increasing' ? '📈' : m.trend === 'Decreasing' ? '📉' : '➡️'}
-                  {m.trend} {m.monthlyChange > 0 ? '+' : ''}{m.monthlyChange} kg/month
-                </span>
-              </div>
-
-              {/* Chart */}
-              <Card className="p-6">
-                <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                  <div>
-                    <h2 className="text-sm font-semibold" style={{ color:'#1A2118' }}>Historical + Predicted Emissions</h2>
-                    <p className="text-xs mt-0.5" style={{ color:'#9BAEA5' }}>kg CO₂e per month</p>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs">
-                    <div className="flex items-center gap-1.5"><div className="w-8 h-0.5" style={{ background:'#2D6A4F' }}/><span style={{ color:'#9BAEA5' }}>Historical</span></div>
-                    <div className="flex items-center gap-1.5"><div className="w-8" style={{ height:'2px', borderTop:'2px dashed #C4952A' }}/><span style={{ color:'#9BAEA5' }}>Forecast</span></div>
-                    <div className="flex items-center gap-1.5"><div className="w-8 h-3 rounded-sm" style={{ background:'rgba(196,149,42,0.18)' }}/><span style={{ color:'#9BAEA5' }}>90% CI</span></div>
-                  </div>
+          {/* Model comparison badges */}
+          <div className="flex gap-3 flex-wrap">
+            {Object.entries(models).map(([key, mdl]) => {
+              const meta = MODEL_META[key] || { name: key, color: '#7A9E8E' };
+              const ok   = mdl.status === 'success' && mdl.metrics;
+              const isBest = key === bestKey;
+              return (
+                <div key={key} className="px-3 py-2 rounded-lg flex flex-col gap-0.5"
+                  style={{ background: isBest ? `${meta.color}12` : '#F8FAF8',
+                           border: `1px solid ${isBest ? meta.color : '#E5EAE8'}` }}>
+                  <span className="text-xs font-bold flex items-center gap-1" style={{ color: meta.color }}>
+                    {isBest && '⭐'} {meta.name}
+                  </span>
+                  {ok ? (
+                    <span className="text-[10px] font-mono" style={{ color:'#9BAEA5' }}>
+                      RMSE {Number(mdl.metrics.rmse).toFixed(1)} · R² {Number(mdl.metrics.r2).toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="text-[10px]" style={{ color:'#DC2626' }}>unavailable</span>
+                  )}
                 </div>
-                <ForecastChart historical={data.historical} forecast={data.forecast} />
-              </Card>
+              );
+            })}
+          </div>
 
-              {/* Month forecast cards */}
+          {/* Trend indicator */}
+          <div className="flex gap-3 flex-wrap items-center">
+            <span className="text-sm font-bold" style={{ color: '#1A2118' }}>Projected trend:</span>
+            <span className="text-sm font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+              style={{ background: `${trendColor}18`, color: trendColor }}>
+              {trend === 'Increasing' ? '📈' : trend === 'Decreasing' ? '📉' : '➡️'}
+              {trend} {monthlyChange > 0 ? '+' : ''}{monthlyChange} kg/month
+            </span>
+          </div>
+
+          {/* Chart */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
               <div>
-                <h3 className="text-sm font-semibold mb-3" style={{ color: '#1A2118' }}>Next {data.forecast.length} Months</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {data.forecast.map((f, i) => (
-                    <motion.div key={f.label} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} transition={{ delay:i*0.06, duration:0.4 }}>
-                      <Card className="p-4 text-center">
-                        <p className="text-xs font-bold uppercase tracking-wider mb-2 font-mono" style={{ color:'#C4952A' }}>{f.label}</p>
-                        <p className="text-2xl font-bold" style={{ color:'#1A2118' }}>
-                          {f.predicted>=1000?`${(f.predicted/1000).toFixed(1)}t`:f.predicted}
-                        </p>
-                        <p className="text-[10px] mb-2" style={{ color:'#9BAEA5' }}>{f.predicted>=1000?'tonnes':'kg'} CO₂e</p>
-                        {i>0&&<div className="text-[10px] font-semibold" style={{ color:f.predicted>data.forecast[i-1].predicted?'#DC2626':'#2D6A4F' }}>
-                          {f.predicted>data.forecast[i-1].predicted?'↑ +':'↓ −'}{Math.abs(f.predicted-data.forecast[i-1].predicted).toFixed(0)} kg
-                        </div>}
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
+                <h2 className="text-sm font-semibold" style={{ color:'#1A2118' }}>Historical + Predicted Emissions</h2>
+                <p className="text-xs mt-0.5" style={{ color:'#9BAEA5' }}>
+                  kg CO₂e per month · model: <strong>{(MODEL_META[bestKey]||{}).name || bestKey}</strong>
+                </p>
               </div>
-            </>
-          )}
+              <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-1.5"><div className="w-8 h-0.5" style={{ background:'#2D6A4F' }}/><span style={{ color:'#9BAEA5' }}>Historical</span></div>
+                <div className="flex items-center gap-1.5"><div className="w-8" style={{ height:'2px', borderTop:'2px dashed #C4952A' }}/><span style={{ color:'#9BAEA5' }}>Forecast</span></div>
+                <div className="flex items-center gap-1.5"><div className="w-8 h-3 rounded-sm" style={{ background:'rgba(196,149,42,0.18)' }}/><span style={{ color:'#9BAEA5' }}>90% CI</span></div>
+              </div>
+            </div>
+            {chartHist.length >= 1
+              ? <ForecastChart historical={chartHist} forecast={chartFc} />
+              : <p className="text-xs text-center py-8" style={{ color:'#9BAEA5' }}>No historical series to plot.</p>}
+          </Card>
+
+          {/* Month forecast cards */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3" style={{ color: '#1A2118' }}>Next {chartFc.length} Months</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {chartFc.map((f, i) => (
+                <motion.div key={f.label + i} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} transition={{ delay:i*0.04, duration:0.4 }}>
+                  <Card className="p-4 text-center">
+                    <p className="text-xs font-bold uppercase tracking-wider mb-2 font-mono" style={{ color:'#C4952A' }}>{f.label}</p>
+                    <p className="text-2xl font-bold" style={{ color:'#1A2118' }}>
+                      {f.predicted>=1000?`${(f.predicted/1000).toFixed(1)}t`:f.predicted}
+                    </p>
+                    <p className="text-[10px] mb-1" style={{ color:'#9BAEA5' }}>{f.predicted>=1000?'tonnes':'kg'} CO₂e</p>
+                    <p className="text-[9px] font-mono" style={{ color:'#C0CCC6' }}>{f.lower}–{f.upper}</p>
+                    {i>0&&<div className="text-[10px] font-semibold mt-1" style={{ color:f.predicted>chartFc[i-1].predicted?'#DC2626':'#2D6A4F' }}>
+                      {f.predicted>chartFc[i-1].predicted?'↑ +':'↓ −'}{Math.abs(f.predicted-chartFc[i-1].predicted)} kg
+                    </div>}
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </>
       )}
     </div>

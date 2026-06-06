@@ -657,20 +657,13 @@ async function getForecast(req, res, next) {
       }
     );
 
-    // Store in database for audit trail
-    await prisma.forecast.create({
-      data: {
-        userId,
-        organizationId: user?.organizationId,
-        bestModel: forecast.best_model || 'unknown',
-        forecastData: forecast,
-        monthsAhead: months
-      }
-    }).catch(err => logger.warn('Could not store forecast record:', err.message));
+    // NOTE: forecast audit-trail persistence is intentionally disabled — there is
+    // no `Forecast` model in the Prisma schema yet. (Re-add once the table exists.)
 
     return successResponse(res, {
       success: true,
       forecast: forecast,
+      historical: sortedMonths.map(m => ({ month: m, value: Math.round(monthlyData[m]) })),
       dataPoints: historicalData.length,
       months: months,
       timestamp: new Date().toISOString()
@@ -750,7 +743,7 @@ async function checkMLServiceHealth(req, res, next) {
   try {
     const health = await mlService.healthCheck();
 
-    if (health.status === 'available' || health.status === 'up') {
+    if (['available', 'up', 'healthy', 'ok'].includes(health.status)) {
       return successResponse(res, {
         status: 'up',
         mlService: health,
