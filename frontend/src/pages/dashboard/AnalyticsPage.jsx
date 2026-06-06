@@ -1,15 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingDown, TrendingUp, Minus, BarChart3, Loader2,
-  AlertCircle, Calculator, RefreshCw, Upload, X,
-  Download, CheckCircle, FileText, Info,
+  AlertCircle, Calculator, RefreshCw, X, HelpCircle,
 } from 'lucide-react';
 import { carbonApi }    from '../../api/carbonApi';
 import { useAuthStore } from '../../store/authStore';
 import { useNavigate }  from 'react-router-dom';
 import { getInitials }  from '../../utils/helpers';
-import toast            from 'react-hot-toast';
 
 /* ─── Shared card ─────────────────────────────── */
 function Card({ className = '', style = {}, children }) {
@@ -38,15 +36,128 @@ function Growth({ pct }) {
   );
 }
 
+/* ─── Score explanation modal ─────────────────── */
+function ScoreModal({ score, onClose }) {
+  const GRADES = [
+    { g: 'A', range: '85–100', color: '#2D6A4F', bg: '#EAF4EE', title: 'Outstanding',  desc: 'Your daily emissions are exceptionally low. You are a sustainability leader — keep logging consistently to maintain this level.' },
+    { g: 'B', range: '70–84',  color: '#52B788', bg: '#F0FAF4', title: 'Good',          desc: 'Above-average performance. Small improvements in commute or energy will push you into the A band.' },
+    { g: 'C', range: '55–69',  color: '#C4952A', bg: '#FDF5E6', title: 'Moderate',      desc: 'Room to improve. Target your largest emission category first — usually commute or energy.' },
+    { g: 'D', range: '40–54',  color: '#E07020', bg: '#FEF0E6', title: 'Needs Work',    desc: 'High emissions relative to benchmarks. Consistent daily logging and active reduction efforts needed.' },
+    { g: 'F', range: '0–39',   color: '#DC2626', bg: '#FEF2F2', title: 'Critical',      desc: 'Significant emissions detected. Immediate action across commute, energy, and food categories is recommended.' },
+  ];
+
+  const FACTORS = [
+    { icon: '📊', label: 'Daily average emissions', desc: 'Lower kg CO₂e per day = higher base score. <1 kg/day earns 95 pts; >30 kg/day earns 22 pts.' },
+    { icon: '📅', label: 'Logging consistency',      desc: 'Tracking more unique days earns up to +8 bonus points. Regular logging = better visibility.' },
+    { icon: '📈', label: 'Trend direction',           desc: 'If your most recent period is lower than the previous, you earn a +5 trend bonus. Rising emissions apply −5.' },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
+      <motion.div initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.2 }}
+        className="w-full max-w-lg rounded-2xl overflow-hidden"
+        style={{ background: '#fff', border: '1px solid #E5EAE8', maxHeight: '90vh', overflowY: 'auto' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4"
+          style={{ borderBottom: '1px solid #E5EAE8', background: '#F8FAF8' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: `${score.color}18` }}>
+              <span className="text-lg font-black" style={{ color: score.color }}>{score.grade}</span>
+            </div>
+            <div>
+              <h2 className="text-sm font-bold" style={{ color: '#1A2118' }}>
+                Sustainability Score — {score.score}/100
+              </h2>
+              <p className="text-xs" style={{ color: score.color }}>{score.label}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100" style={{ color: '#9BAEA5' }}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* What it means */}
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#9BAEA5' }}>
+              How it's calculated
+            </h3>
+            <div className="space-y-2.5">
+              {FACTORS.map(f => (
+                <div key={f.label} className="flex items-start gap-3 p-3 rounded-xl"
+                  style={{ background: '#F8FAF8', border: '1px solid #E5EAE8' }}>
+                  <span className="text-lg flex-shrink-0">{f.icon}</span>
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: '#1A2118' }}>{f.label}</p>
+                    <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#7A9E8E' }}>{f.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Grade breakdown */}
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#9BAEA5' }}>
+              Grade levels
+            </h3>
+            <div className="space-y-2">
+              {GRADES.map(g => (
+                <div key={g.g}
+                  className="flex items-start gap-3 p-3 rounded-xl"
+                  style={{
+                    background: score.grade === g.g ? g.bg : '#F8FAF8',
+                    border: `1px solid ${score.grade === g.g ? g.color + '40' : '#E5EAE8'}`,
+                  }}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black"
+                    style={{ background: g.color, color: '#fff' }}>{g.g}</div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold" style={{ color: g.color }}>{g.title}</span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                        style={{ background: `${g.color}18`, color: g.color }}>{g.range}</span>
+                      {score.grade === g.g && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: g.color, color: '#fff' }}>Your grade</span>
+                      )}
+                    </div>
+                    <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#7A9E8E' }}>{g.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* How to improve */}
+          <div className="p-4 rounded-xl" style={{ background: '#EAF4EE', border: '1px solid #C0DDD0' }}>
+            <p className="text-xs font-bold mb-2" style={{ color: '#1B4332' }}>💡 How to improve your score</p>
+            <ul className="text-xs space-y-1" style={{ color: '#3D6B56' }}>
+              <li>• Log entries every day — consistency earns up to +8 bonus points</li>
+              <li>• Reduce your top emission source (see Top Sources section)</li>
+              <li>• Switch from car to bus/train for your daily commute</li>
+              <li>• Replace one beef meal per week with vegetarian</li>
+              <li>• Monitor your trend — declining emissions earn an extra +5</li>
+            </ul>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 /* ─── Sustainability score banner ─────────────── */
-function SustainabilityBanner({ score }) {
+function SustainabilityBanner({ score, onInfoClick }) {
   if (!score) return null;
   const circ = 2 * Math.PI * 44;
   const dash = circ * (1 - score.score / 100);
   const grades = ['A','B','C','D','F'];
 
   return (
-    <Card className="p-5">
+    <Card className="p-5 cursor-pointer hover:shadow-md transition-shadow" onClick={onInfoClick}>
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
         {/* Ring */}
         <div className="relative flex-shrink-0" style={{ width: 100, height: 100 }}>
@@ -72,6 +183,10 @@ function SustainabilityBanner({ score }) {
             <h3 className="text-base font-bold" style={{ color: '#1A2118' }}>Sustainability Score</h3>
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
               style={{ background: `${score.color}18`, color: score.color }}>{score.label}</span>
+            <span className="flex items-center gap-1 text-xs ml-auto"
+              style={{ color: '#9BAEA5' }}>
+              <HelpCircle className="h-3.5 w-3.5" /> Click to learn more
+            </span>
           </div>
           <p className="text-xs mt-1 leading-relaxed" style={{ color: '#7A9E8E' }}>
             {score.score >= 85 ? 'Outstanding! Your emissions are well below average. Keep up the excellent work.'
@@ -375,211 +490,7 @@ function EmptyState({ navigate }) {
   );
 }
 
-/* ════════════════════════════════════════════════
-   CSV Upload Modal
-════════════════════════════════════════════════ */
-const VALID_CATS = {
-  commute: ['car_petrol','car_diesel','car_electric','motorbike','bus','train','walking'],
-  energy:  ['electricity','natural_gas','lpg','diesel_gen'],
-  travel:  ['flight_short','flight_long','car_rental','taxi'],
-  food:    ['beef','chicken','fish','vegetarian','vegan'],
-};
-const SAMPLE_CSV = `date,category,sub_category,quantity,description,user_email
-2026-01-15,commute,car_petrol,25,Morning commute,
-2026-01-20,energy,electricity,150,Office electricity bill,
-2026-02-05,travel,flight_short,800,Karachi to Lahore flight,
-2026-02-10,food,beef,3,Weekly meals,wardahzia4@gmail.com
-2026-03-01,commute,bus,60,Monthly bus travel,`;
 
-function downloadSample() {
-  const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' });
-  const a    = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'carbonx_sample.csv'; a.click();
-}
-function parseCSV(text) {
-  const lines   = text.trim().split('\n').filter(l => l.trim());
-  if (lines.length < 2) throw new Error('CSV needs a header row and at least one data row');
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z_]/g,''));
-  return lines.slice(1).map((line, i) => {
-    const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g,''));
-    const row  = {};
-    headers.forEach((h, j) => { row[h] = vals[j] ?? ''; });
-    row._row = i + 2;
-    return row;
-  });
-}
-function CSVUploadModal({ onClose, onSuccess }) {
-  const [rows, setRows]         = useState([]);
-  const [fileName, setFileName] = useState('');
-  const [dragging, setDragging] = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [result, setResult]     = useState(null);
-  const fileRef = useRef();
-
-  function handleFile(file) {
-    if (!file) return;
-    if (!file.name.endsWith('.csv')) { toast.error('Please upload a .csv file'); return; }
-    setFileName(file.name); setResult(null);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try { setRows(parseCSV(e.target.result)); }
-      catch (err) { toast.error(err.message); setRows([]); }
-    };
-    reader.readAsText(file);
-  }
-  async function handleUpload() {
-    if (!rows.length) return;
-    setLoading(true);
-    try {
-      const { data: res } = await carbonApi.bulkUpload(rows);
-      setResult(res.data);
-      if (res.data.inserted > 0) { toast.success(`${res.data.inserted} entries imported!`); onSuccess?.(); }
-    } catch (e) { toast.error(e?.response?.data?.message ?? 'Upload failed'); }
-    finally { setLoading(false); }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
-      <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-2xl rounded-2xl overflow-hidden"
-        style={{ background: '#fff', border: '1px solid #E5EAE8', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E5EAE8' }}>
-          <div className="flex items-center gap-2">
-            <Upload className="h-5 w-5" style={{ color: '#2D6A4F' }} />
-            <h2 className="text-sm font-bold" style={{ color: '#1A2118' }}>Import Historical Data (CSV)</h2>
-          </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100" style={{ color: '#9BAEA5' }}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="p-6 space-y-5">
-          {/* Format spec */}
-          <div className="rounded-xl p-4 text-xs space-y-2" style={{ background: '#F8FAF8', border: '1px solid #E5EAE8' }}>
-            <p className="font-bold" style={{ color: '#1A2118' }}>Required CSV Format</p>
-            <code className="block p-2 rounded-lg text-[11px] font-mono overflow-x-auto" style={{ background: '#1A2118', color: '#52B788' }}>
-              date,category,sub_category,quantity,description,user_email
-            </code>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              {[
-                { col:'date', ex:'2026-01-15', note:'YYYY-MM-DD · past dates only' },
-                { col:'category', ex:'commute', note:'commute | energy | travel | food' },
-                { col:'sub_category', ex:'car_petrol', note:'see full list below' },
-                { col:'quantity', ex:'25', note:'positive number (km / kWh / meal)' },
-                { col:'description', ex:'Daily commute', note:'optional — free text' },
-                { col:'user_email', ex:'john@co.com', note:'optional — blank = yourself' },
-              ].map(r => (
-                <div key={r.col} className="p-2 rounded-lg" style={{ background: '#fff', border: '1px solid #E5EAE8' }}>
-                  <span className="font-bold font-mono" style={{ color: '#2D6A4F' }}>{r.col}</span>
-                  <span className="ml-1.5" style={{ color: '#9BAEA5' }}>e.g. {r.ex}</span>
-                  <p className="mt-0.5" style={{ color: '#7A9E8E' }}>{r.note}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-2 pt-2" style={{ borderTop: '1px solid #E5EAE8' }}>
-              <p className="font-semibold mb-1.5" style={{ color: '#1A2118' }}>Valid sub_category values:</p>
-              {Object.entries(VALID_CATS).map(([cat, subs]) => (
-                <div key={cat} className="mb-1">
-                  <span className="font-bold capitalize" style={{ color: '#2D6A4F' }}>{cat}:</span>{' '}
-                  <span className="font-mono" style={{ color: '#5A7A6D' }}>{subs.join(', ')}</span>
-                </div>
-              ))}
-            </div>
-            <button onClick={downloadSample}
-              className="flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80"
-              style={{ background: '#EAF4EE', color: '#2D6A4F' }}>
-              <Download className="h-3.5 w-3.5" /> Download sample CSV
-            </button>
-          </div>
-
-          {/* Drop zone */}
-          {!result && (
-            <div onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)}
-              onDrop={e=>{e.preventDefault();setDragging(false);handleFile(e.dataTransfer.files[0])}}
-              onClick={()=>fileRef.current?.click()}
-              className="flex flex-col items-center justify-center rounded-xl cursor-pointer"
-              style={{ border:`2px dashed ${dragging?'#2D6A4F':'#D0DDD8'}`, background:dragging?'#EAF4EE':'#F8FAF8', padding:'28px 20px' }}>
-              <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={e=>handleFile(e.target.files[0])} />
-              <FileText className="h-8 w-8 mb-2" style={{ color: dragging?'#2D6A4F':'#9BAEA5' }} />
-              {fileName
-                ? <p className="text-sm font-semibold" style={{ color:'#1A2118' }}>{fileName}</p>
-                : <p className="text-sm font-semibold" style={{ color:'#5A7A6D' }}>Drop CSV here or click to browse</p>}
-              <p className="text-xs mt-1" style={{ color:'#9BAEA5' }}>Max 1 000 rows per upload</p>
-            </div>
-          )}
-
-          {/* Preview */}
-          {rows.length > 0 && !result && (
-            <div>
-              <p className="text-xs font-semibold mb-2" style={{ color:'#1A2118' }}>Preview — {rows.length} rows</p>
-              <div className="overflow-x-auto rounded-xl" style={{ border:'1px solid #E5EAE8' }}>
-                <table className="w-full text-xs">
-                  <thead><tr style={{ background:'#F4F6F4' }}>
-                    {['date','category','sub_category','quantity','description','user_email'].map(h=>(
-                      <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color:'#5A7A6D' }}>{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {rows.slice(0,8).map((r,i)=>(
-                      <tr key={i} style={{ borderTop:'1px solid #F0EDE4' }}>
-                        {['date','category','sub_category','quantity','description','user_email'].map(h=>(
-                          <td key={h} className="px-3 py-2" style={{ color:'#3D5247' }}>{r[h]||'—'}</td>
-                        ))}
-                      </tr>
-                    ))}
-                    {rows.length>8&&(
-                      <tr style={{ borderTop:'1px solid #F0EDE4' }}>
-                        <td colSpan={6} className="px-3 py-2 text-center" style={{ color:'#9BAEA5' }}>+{rows.length-8} more rows…</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Result */}
-          {result && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-4 rounded-xl" style={{ background:'#EAF4EE', border:'1px solid #C0DDD0' }}>
-                <CheckCircle className="h-5 w-5 flex-shrink-0" style={{ color:'#2D6A4F' }} />
-                <p className="text-sm font-bold" style={{ color:'#1B4332' }}>
-                  {result.inserted} entries imported successfully
-                </p>
-              </div>
-              {result.errors?.length > 0 && (
-                <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #FECACA' }}>
-                  <p className="px-3 py-2 text-xs font-semibold" style={{ background:'#FEF2F2', color:'#DC2626' }}>
-                    {result.errors.length} rows skipped with errors
-                  </p>
-                  {result.errors.slice(0,5).map((e,i)=>(
-                    <div key={i} className="px-3 py-2 text-xs" style={{ borderTop:'1px solid #FEF2F2', color:'#7f1d1d' }}>
-                      Row {e.row}: {e.message}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <button onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-semibold"
-              style={{ background:'#F4F6F4', color:'#5A7A6D' }}>{result ? 'Close' : 'Cancel'}</button>
-            {!result && rows.length > 0 && (
-              <button onClick={handleUpload} disabled={loading}
-                className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
-                style={{ background:'#2D6A4F' }}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                {loading ? 'Importing…' : `Import ${rows.length} rows`}
-              </button>
-            )}
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
 
 /* ════════════════════════════════════════════════
    CONSTANTS
@@ -602,11 +513,11 @@ export default function AnalyticsPage() {
   const navigate   = useNavigate();
   const isAdmin    = user?.role === 'ADMIN';
 
-  const [rangeIdx,    setRangeIdx]    = useState(2);
-  const [analytics,   setAnalytics]   = useState(null);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState('');
-  const [showUpload,  setShowUpload]  = useState(false);
+  const [rangeIdx,       setRangeIdx]       = useState(2);
+  const [analytics,      setAnalytics]      = useState(null);
+  const [loading,        setLoading]        = useState(true);
+  const [error,          setError]          = useState('');
+  const [showScoreModal, setShowScoreModal] = useState(false);
 
   const period = RANGES[rangeIdx].period;
 
@@ -646,13 +557,6 @@ export default function AnalyticsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {isAdmin && (
-            <button onClick={() => setShowUpload(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold"
-              style={{ background: '#EAF4EE', color: '#2D6A4F', border: '1px solid #C0DDD0' }}>
-              <Upload className="h-4 w-4" /> Import CSV
-            </button>
-          )}
           <button onClick={fetchData} disabled={loading}
             className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-40"
             style={{ color: '#7A9E8E', border: '1px solid #E5EAE8' }}>
@@ -693,7 +597,12 @@ export default function AnalyticsPage() {
             className="space-y-5">
 
             {/* ── Sustainability Score banner (top, prominent) ── */}
-            {hasData && <SustainabilityBanner score={analytics.sustainabilityScore} />}
+            {hasData && (
+              <SustainabilityBanner
+                score={analytics.sustainabilityScore}
+                onInfoClick={() => setShowScoreModal(true)}
+              />
+            )}
 
             {/* ── KPI cards ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -858,10 +767,15 @@ export default function AnalyticsPage() {
         </AnimatePresence>
       )}
 
-      {/* CSV Modal */}
-      {showUpload && (
-        <CSVUploadModal onClose={() => setShowUpload(false)} onSuccess={fetchData} />
-      )}
+      {/* Score explanation modal */}
+      <AnimatePresence>
+        {showScoreModal && analytics?.sustainabilityScore && (
+          <ScoreModal
+            score={analytics.sustainabilityScore}
+            onClose={() => setShowScoreModal(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
