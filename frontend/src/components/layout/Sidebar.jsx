@@ -16,6 +16,7 @@ const ALL_NAV = [
   { icon: BarChart3,       label: 'Analytics',    href: '/dashboard/analytics',               adminOnly: false },
   { icon: MessageSquare,   label: 'AI Chat',      href: '/dashboard/chat',                    adminOnly: false },
   { icon: Sparkles,        label: 'AI Insights',  href: '/dashboard/insights',                adminOnly: false },
+  { icon: BrainCircuit,    label: 'CarboncastX',  href: '/dashboard/carboncastx',             adminOnly: false },
   { icon: ShieldCheck,     label: 'Admin Panel', href: '/dashboard/admin',                   adminOnly: true  },
 ];
 

@@ -15,6 +15,7 @@ import ActivitiesPage  from '../pages/dashboard/ActivitiesPage';
 import AnalyticsPage   from '../pages/dashboard/AnalyticsPage';
 import ChatPage        from '../pages/dashboard/ChatPage';
 import InsightsPage    from '../pages/dashboard/InsightsPage';
+import CarboncastXPage from '../pages/dashboard/CarboncastXPage';
 import AdminPage       from '../pages/dashboard/AdminPage';
 
 import ProtectedRoute  from './ProtectedRoute';
@@ -67,6 +68,7 @@ export default function AppRouter() {
         <Route path="analytics"      element={<AnalyticsPage />} />
         <Route path="chat"           element={<ChatPage />} />
         <Route path="insights"       element={<InsightsPage />} />
+        <Route path="carboncastx"    element={<CarboncastXPage />} />
         <Route path="admin"          element={<AdminRoute><AdminPage /></AdminRoute>} />
       </Route>
 
