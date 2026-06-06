@@ -4,6 +4,7 @@ const carbonRoutes = require('./carbonRoutes');
 const adminRoutes  = require('./adminRoutes');
 const chatRoutes          = require('./chatRoutes');
 const conversationRoutes  = require('./conversationRoutes');
+const insightsRoutes      = require('./insightsRoutes');
 
 const router = Router();
 
@@ -12,6 +13,7 @@ router.use('/carbon', carbonRoutes);
 router.use('/admin',  adminRoutes);
 router.use('/chat',          chatRoutes);
 router.use('/conversations', conversationRoutes);
+router.use('/insights',      insightsRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

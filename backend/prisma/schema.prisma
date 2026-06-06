@@ -11,17 +11,31 @@ datasource db {
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
-  name          String
-  email         String         @unique
-  password      String
-  role          Role           @default(USER)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  carbonEntries CarbonEntry[]
-  conversations Conversation[]
+  id             Int             @id @default(autoincrement())
+  name           String
+  email          String          @unique
+  password       String
+  role           Role            @default(USER)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  carbonEntries  CarbonEntry[]
+  conversations  Conversation[]
+  userChallenges UserChallenge[]
 
   @@map("users")
+}
+
+model UserChallenge {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  challengeId String    @db.VarChar(100)
+  status      String    @default("active") @db.VarChar(20)
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId])
+  @@map("user_challenges")
 }
 
 model Conversation {
