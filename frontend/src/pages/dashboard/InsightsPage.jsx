@@ -532,8 +532,8 @@ function ForecastTab() {
       <Card className="p-4 flex items-start gap-3" style={{ background: '#F8FAF8' }}>
         <Info className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: '#2D6A4F' }} />
         <p className="text-xs leading-relaxed" style={{ color: '#5A7A6D' }}>
-          <strong style={{ color: '#1A2118' }}>OLS Linear Regression</strong> — fits a best-fit line through your monthly emission totals and extrapolates forward.
-          The shaded band is a <strong>90% prediction interval</strong>. More months logged = higher R² = better accuracy.
+          <strong style={{ color: '#1A2118' }}>12-month emissions forecast</strong> based on your historical data.
+          The shaded band shows the uncertainty range. More months of logging = more accurate predictions.
         </p>
       </Card>
 
@@ -556,18 +556,13 @@ function ForecastTab() {
             </Card>
           ) : (
             <>
-              {/* Model quality pills */}
-              <div className="flex flex-wrap gap-2">
-                <span className="text-xs font-bold px-3 py-1 rounded-full"
-                  style={{ background: m.r2Pct>=90?'#EAF4EE':m.r2Pct>=70?'#EAF4EE':m.r2Pct>=50?'#FDF5E6':'#FEF2F2', color: m.r2Pct>=70?'#2D6A4F':m.r2Pct>=50?'#C4952A':'#DC2626' }}>
-                  R² = {m.r2Pct}% · {m.confidence} accuracy
-                </span>
-                <span className="text-xs font-bold px-3 py-1 rounded-full"
-                  style={{ background:`${m.trendColor}14`, color: m.trendColor }}>
-                  {m.trend} · {m.monthlyChange>0?'+':''}{m.monthlyChange} kg/month
-                </span>
-                <span className="text-xs font-medium px-3 py-1 rounded-full" style={{ background:'#F4F6F4', color:'#9BAEA5', border:'1px solid #E5EAE8' }}>
-                  {m.dataPoints} historical · {m.forecastMonths} predicted
+              {/* Trend indicator */}
+              <div className="flex gap-3 flex-wrap items-center">
+                <span className="text-sm font-bold" style={{ color: '#1A2118' }}>Your trend:</span>
+                <span className="text-sm font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+                  style={{ background: `${m.trendColor}18`, color: m.trendColor }}>
+                  {m.trend === 'Increasing' ? '📈' : m.trend === 'Decreasing' ? '📉' : '➡️'}
+                  {m.trend} {m.monthlyChange > 0 ? '+' : ''}{m.monthlyChange} kg/month
                 </span>
               </div>
 
@@ -587,51 +582,26 @@ function ForecastTab() {
                 <ForecastChart historical={data.historical} forecast={data.forecast} />
               </Card>
 
-              {/* Month cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {data.forecast.map((f, i) => (
-                  <motion.div key={f.label} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} transition={{ delay:i*0.06, duration:0.4 }}>
-                    <Card className="p-4 text-center">
-                      <p className="text-xs font-bold uppercase tracking-wider mb-2 font-mono" style={{ color:'#C4952A' }}>{f.label}</p>
-                      <p className="text-2xl font-bold mb-0.5" style={{ color:'#1A2118' }}>
-                        {f.predicted>=1000?`${(f.predicted/1000).toFixed(2)}t`:f.predicted}
-                      </p>
-                      <p className="text-[10px] mb-3" style={{ color:'#9BAEA5' }}>{f.predicted>=1000?'tonnes':'kg'} CO₂e</p>
-                      <div className="text-[10px] pt-2" style={{ borderTop:'1px solid #F0EDE4', color:'#9BAEA5' }}>
-                        <div className="flex justify-between"><span>Low</span><span>High</span></div>
-                        <div className="flex justify-between font-semibold mt-0.5" style={{ color:'#7A9E8E' }}>
-                          <span>{f.lower}</span><span>{f.upper}</span>
-                        </div>
-                      </div>
-                      {i>0&&<div className="mt-2 text-[10px] font-semibold" style={{ color:f.predicted>data.forecast[i-1].predicted?'#DC2626':'#2D6A4F' }}>
-                        {f.predicted>data.forecast[i-1].predicted?'↑':'↓'} {Math.abs(f.predicted-data.forecast[i-1].predicted).toFixed(1)} kg
-                      </div>}
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-
-              {/* Equation */}
-              <Card className="p-5">
-                <h3 className="text-sm font-semibold mb-4" style={{ color:'#1A2118' }}>Model</h3>
-                <div className="grid sm:grid-cols-4 gap-3 mb-4">
-                  {[
-                    { l:'Type',       v:'Linear Regression',      s:'Ordinary Least Squares' },
-                    { l:'R² Fit',     v:`${m.r2Pct}%`,             s:`${m.confidence} confidence` },
-                    { l:'Monthly Δ',  v:`${m.slope>0?'+':''}${m.slope} kg`, s:m.trend },
-                    { l:'Intercept',  v:`${m.intercept} kg`,        s:'Regression constant' },
-                  ].map(s=>(
-                    <div key={s.l} className="rounded-xl p-3" style={{ background:'#F8FAF8', border:'1px solid #E5EAE8' }}>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color:'#9BAEA5' }}>{s.l}</p>
-                      <p className="text-sm font-bold" style={{ color:'#1A2118' }}>{s.v}</p>
-                      <p className="text-[10px] mt-0.5" style={{ color:'#9BAEA5' }}>{s.s}</p>
-                    </div>
+              {/* Month forecast cards */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: '#1A2118' }}>Next {data.forecast.length} Months</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {data.forecast.map((f, i) => (
+                    <motion.div key={f.label} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} transition={{ delay:i*0.06, duration:0.4 }}>
+                      <Card className="p-4 text-center">
+                        <p className="text-xs font-bold uppercase tracking-wider mb-2 font-mono" style={{ color:'#C4952A' }}>{f.label}</p>
+                        <p className="text-2xl font-bold" style={{ color:'#1A2118' }}>
+                          {f.predicted>=1000?`${(f.predicted/1000).toFixed(1)}t`:f.predicted}
+                        </p>
+                        <p className="text-[10px] mb-2" style={{ color:'#9BAEA5' }}>{f.predicted>=1000?'tonnes':'kg'} CO₂e</p>
+                        {i>0&&<div className="text-[10px] font-semibold" style={{ color:f.predicted>data.forecast[i-1].predicted?'#DC2626':'#2D6A4F' }}>
+                          {f.predicted>data.forecast[i-1].predicted?'↑ +':'↓ −'}{Math.abs(f.predicted-data.forecast[i-1].predicted).toFixed(0)} kg
+                        </div>}
+                      </Card>
+                    </motion.div>
                   ))}
                 </div>
-                <div className="p-3 rounded-xl font-mono text-sm text-center" style={{ background:'#F4F6F4', color:'#2D6A4F' }}>
-                  ŷ = {m.slope>0?'+':''}{m.slope} × month + {m.intercept}
-                </div>
-              </Card>
+              </div>
             </>
           )}
         </>
