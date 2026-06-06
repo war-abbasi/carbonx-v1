@@ -1,31 +1,114 @@
 date,category,sub_category,quantity,description,user_email
-2026-01-05,commute,car_petrol,25,Morning commute,wardahzia4@gmail.com
-2026-01-10,energy,electricity,150,Monthly electricity bill,wardahzia4@gmail.com
-2026-01-15,food,beef,3,Weekly beef meals,wardahzia4@gmail.com
-2026-01-20,commute,car_petrol,28,Daily commute,wardahzia4@gmail.com
-2026-01-25,travel,flight_short,800,Karachi to Lahore,wardahzia4@gmail.com
-2026-02-03,commute,car_petrol,26,Morning commute,wardahzia4@gmail.com
-2026-02-08,energy,electricity,160,Electricity usage,wardahzia4@gmail.com
-2026-02-12,food,beef,4,Weekly meals,wardahzia4@gmail.com
-2026-02-18,commute,bus,60,Bus travel monthly,wardahzia4@gmail.com
-2026-02-22,energy,natural_gas,10,Gas heating,wardahzia4@gmail.com
-2026-03-02,commute,car_petrol,27,Morning commute,wardahzia4@gmail.com
-2026-03-07,energy,electricity,155,Electricity bill,wardahzia4@gmail.com
-2026-03-12,food,beef,3,Weekly beef meals,wardahzia4@gmail.com
-2026-03-18,commute,car_petrol,30,Daily driving,wardahzia4@gmail.com
-2026-03-25,travel,flight_short,750,Lahore to Islamabad,wardahzia4@gmail.com
-2026-04-01,commute,car_petrol,29,Morning commute,wardahzia4@gmail.com
-2026-04-08,energy,electricity,170,Electricity usage,wardahzia4@gmail.com
-2026-04-14,food,beef,3,Weekly meals,wardahzia4@gmail.com
-2026-04-20,commute,bus,50,Public transport,wardahzia4@gmail.com
-2026-04-28,energy,diesel_gen,15,Generator usage,wardahzia4@gmail.com
-2026-05-03,commute,car_petrol,28,Morning commute,wardahzia4@gmail.com
-2026-05-10,energy,electricity,180,High AC usage,wardahzia4@gmail.com
-2026-05-15,food,beef,4,Weekly meals,wardahzia4@gmail.com
-2026-05-21,commute,motorbike,20,Motorbike trips,wardahzia4@gmail.com
-2026-05-28,travel,flight_long,2400,Karachi to Dubai,wardahzia4@gmail.com
-2026-06-02,commute,car_petrol,30,Morning commute,wardahzia4@gmail.com
-2026-06-08,energy,electricity,195,Peak summer AC,wardahzia4@gmail.com
-2026-06-14,food,beef,3,Weekly meals,wardahzia4@gmail.com
-2026-06-20,commute,car_petrol,32,Daily driving,wardahzia4@gmail.com
-2026-06-26,energy,lpg,5,LPG cylinder,wardahzia4@gmail.com
+2026-01-02,commute,car_petrol,22,Daily commute,wardahzia4@gmail.com
+2026-01-03,commute,car_petrol,24,Daily commute,wardahzia4@gmail.com
+2026-01-04,commute,bus,60,Bus to office,wardahzia4@gmail.com
+2026-01-05,energy,electricity,120,Monthly bill,wardahzia4@gmail.com
+2026-01-06,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-01-07,commute,car_petrol,25,Daily commute,wardahzia4@gmail.com
+2026-01-08,commute,motorbike,15,Short trips,wardahzia4@gmail.com
+2026-01-09,energy,natural_gas,8,Heating,wardahzia4@gmail.com
+2026-01-10,food,chicken,2,Meals,wardahzia4@gmail.com
+2026-01-12,commute,car_petrol,26,Daily commute,wardahzia4@gmail.com
+2026-01-13,commute,car_petrol,23,Daily commute,wardahzia4@gmail.com
+2026-01-15,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-01-16,commute,bus,50,Public transport,wardahzia4@gmail.com
+2026-01-18,commute,car_petrol,24,Daily commute,wardahzia4@gmail.com
+2026-01-19,energy,electricity,125,Usage,wardahzia4@gmail.com
+2026-01-20,travel,flight_short,800,Business trip,wardahzia4@gmail.com
+2026-01-22,commute,car_petrol,25,Daily commute,wardahzia4@gmail.com
+2026-01-23,food,vegetarian,2,Meals,wardahzia4@gmail.com
+2026-01-25,commute,car_petrol,23,Daily commute,wardahzia4@gmail.com
+2026-01-26,energy,electricity,118,Usage,wardahzia4@gmail.com
+2026-01-28,commute,motorbike,18,Short trips,wardahzia4@gmail.com
+2026-01-29,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-01-30,commute,car_petrol,26,Daily commute,wardahzia4@gmail.com
+2026-02-01,energy,electricity,132,Monthly bill,wardahzia4@gmail.com
+2026-02-02,commute,car_petrol,24,Daily commute,wardahzia4@gmail.com
+2026-02-03,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-02-04,commute,bus,55,Public transport,wardahzia4@gmail.com
+2026-02-05,energy,natural_gas,10,Heating,wardahzia4@gmail.com
+2026-02-06,commute,car_petrol,25,Daily commute,wardahzia4@gmail.com
+2026-02-08,commute,car_petrol,26,Daily commute,wardahzia4@gmail.com
+2026-02-09,food,chicken,2,Meals,wardahzia4@gmail.com
+2026-02-10,travel,flight_short,750,Business trip,wardahzia4@gmail.com
+2026-02-12,commute,car_petrol,27,Daily commute,wardahzia4@gmail.com
+2026-02-13,energy,electricity,128,Usage,wardahzia4@gmail.com
+2026-02-15,commute,motorbike,20,Short trips,wardahzia4@gmail.com
+2026-02-16,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-02-17,commute,car_petrol,25,Daily commute,wardahzia4@gmail.com
+2026-02-19,commute,car_petrol,24,Daily commute,wardahzia4@gmail.com
+2026-02-20,energy,electricity,130,Usage,wardahzia4@gmail.com
+2026-02-22,commute,bus,60,Public transport,wardahzia4@gmail.com
+2026-02-23,food,vegetarian,2,Meals,wardahzia4@gmail.com
+2026-02-24,commute,car_petrol,26,Daily commute,wardahzia4@gmail.com
+2026-02-26,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-02-27,energy,electricity,125,Usage,wardahzia4@gmail.com
+2026-03-01,commute,car_petrol,28,Daily commute,wardahzia4@gmail.com
+2026-03-02,energy,electricity,145,Monthly bill,wardahzia4@gmail.com
+2026-03-03,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-03-04,commute,motorbike,22,Short trips,wardahzia4@gmail.com
+2026-03-05,energy,natural_gas,7,Less heating,wardahzia4@gmail.com
+2026-03-06,commute,car_petrol,26,Daily commute,wardahzia4@gmail.com
+2026-03-08,commute,car_petrol,27,Daily commute,wardahzia4@gmail.com
+2026-03-09,food,chicken,2,Meals,wardahzia4@gmail.com
+2026-03-10,travel,flight_long,2200,International,wardahzia4@gmail.com
+2026-03-12,commute,car_petrol,28,Daily commute,wardahzia4@gmail.com
+2026-03-13,energy,electricity,152,Usage,wardahzia4@gmail.com
+2026-03-15,commute,bus,65,Public transport,wardahzia4@gmail.com
+2026-03-16,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-03-17,commute,car_petrol,29,Daily commute,wardahzia4@gmail.com
+2026-03-19,commute,car_petrol,26,Daily commute,wardahzia4@gmail.com
+2026-03-20,energy,electricity,155,Usage,wardahzia4@gmail.com
+2026-03-22,commute,motorbike,23,Short trips,wardahzia4@gmail.com
+2026-03-23,food,vegetarian,2,Meals,wardahzia4@gmail.com
+2026-03-24,commute,car_petrol,28,Daily commute,wardahzia4@gmail.com
+2026-03-26,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-03-27,energy,electricity,150,Usage,wardahzia4@gmail.com
+2026-04-01,commute,car_petrol,30,Daily commute,wardahzia4@gmail.com
+2026-04-02,energy,electricity,168,Monthly bill,wardahzia4@gmail.com
+2026-04-03,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-04-04,commute,bus,70,Public transport,wardahzia4@gmail.com
+2026-04-05,energy,diesel_gen,12,Generator use,wardahzia4@gmail.com
+2026-04-06,commute,car_petrol,29,Daily commute,wardahzia4@gmail.com
+2026-04-08,commute,car_petrol,31,Daily commute,wardahzia4@gmail.com
+2026-04-09,food,chicken,2,Meals,wardahzia4@gmail.com
+2026-04-10,travel,flight_short,820,Business trip,wardahzia4@gmail.com
+2026-04-12,commute,car_petrol,32,Daily commute,wardahzia4@gmail.com
+2026-04-13,energy,electricity,175,Usage,wardahzia4@gmail.com
+2026-04-15,commute,motorbike,25,Short trips,wardahzia4@gmail.com
+2026-04-16,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-04-17,commute,car_petrol,31,Daily commute,wardahzia4@gmail.com
+2026-04-19,commute,car_petrol,30,Daily commute,wardahzia4@gmail.com
+2026-04-20,energy,electricity,180,Usage,wardahzia4@gmail.com
+2026-04-22,commute,bus,75,Public transport,wardahzia4@gmail.com
+2026-04-23,food,vegetarian,2,Meals,wardahzia4@gmail.com
+2026-04-24,commute,car_petrol,32,Daily commute,wardahzia4@gmail.com
+2026-04-26,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-04-27,energy,electricity,185,Usage,wardahzia4@gmail.com
+2026-05-01,commute,car_petrol,32,Daily commute,wardahzia4@gmail.com
+2026-05-02,energy,electricity,195,Monthly bill,wardahzia4@gmail.com
+2026-05-03,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-05-04,commute,motorbike,28,Short trips,wardahzia4@gmail.com
+2026-05-05,energy,lpg,6,Gas cylinder,wardahzia4@gmail.com
+2026-05-06,commute,car_petrol,33,Daily commute,wardahzia4@gmail.com
+2026-05-08,commute,car_petrol,34,Daily commute,wardahzia4@gmail.com
+2026-05-09,food,chicken,2,Meals,wardahzia4@gmail.com
+2026-05-10,travel,flight_short,800,Business trip,wardahzia4@gmail.com
+2026-05-12,commute,car_petrol,35,Daily commute,wardahzia4@gmail.com
+2026-05-13,energy,electricity,205,Summer peak,wardahzia4@gmail.com
+2026-05-15,commute,bus,80,Public transport,wardahzia4@gmail.com
+2026-05-16,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-05-17,commute,car_petrol,36,Daily commute,wardahzia4@gmail.com
+2026-05-19,commute,car_petrol,34,Daily commute,wardahzia4@gmail.com
+2026-05-20,energy,electricity,210,Summer peak,wardahzia4@gmail.com
+2026-05-22,commute,motorbike,26,Short trips,wardahzia4@gmail.com
+2026-05-23,food,vegetarian,2,Meals,wardahzia4@gmail.com
+2026-05-24,commute,car_petrol,35,Daily commute,wardahzia4@gmail.com
+2026-05-26,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-05-27,energy,electricity,215,Summer peak,wardahzia4@gmail.com
+2026-06-01,commute,car_petrol,36,Daily commute,wardahzia4@gmail.com
+2026-06-02,energy,electricity,220,Monthly bill,wardahzia4@gmail.com
+2026-06-03,food,beef,3,Weekly meals,wardahzia4@gmail.com
+2026-06-04,commute,bus,85,Public transport,wardahzia4@gmail.com
+2026-06-05,energy,diesel_gen,15,Heavy generator,wardahzia4@gmail.com
+2026-06-06,commute,car_petrol,37,Daily commute,wardahzia4@gmail.com
