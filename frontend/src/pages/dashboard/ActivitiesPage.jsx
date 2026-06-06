@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Activity, Calculator, Trophy,
-  UserCheck, Shield, Zap, BarChart3, FileText, LogIn,
-  AlertCircle, CheckCircle, Clock, Filter,
-  ChevronDown, Loader2, Send, Medal, Crown,
+  Calculator, Trophy,
+  CheckCircle, ChevronDown, Loader2, Send, Medal, Crown,
 } from 'lucide-react';
 import { carbonApi } from '../../api/carbonApi';
 import { useAuthStore } from '../../store/authStore';
@@ -21,88 +19,7 @@ function Card({ className = '', style = {}, children }) {
 }
 
 /* ═══════════════════════════════════════════════════
-   TAB 1 — ACTIVITY LOG
-═══════════════════════════════════════════════════ */
-const ALL_ACTIVITIES = [
-  { id: 1, type: 'account', icon: UserCheck, title: 'Account Created',              desc: 'Your CarbonX account was successfully created.',          time: 'Today',   status: 'success', accent: '#2D6A4F' },
-  { id: 2, type: 'account', icon: LogIn,     title: 'First Login',                  desc: 'Successful login from your registered device.',            time: 'Today',   status: 'success', accent: '#2D6A4F' },
-  { id: 3, type: 'system',  icon: Shield,    title: 'Security Verification Passed', desc: 'Account security check completed without issues.',         time: 'Today',   status: 'success', accent: '#2D6A4F' },
-  { id: 4, type: 'system',  icon: Zap,       title: 'AI Model Initialised',         desc: 'Emission prediction model is ready for your data.',        time: 'Today',   status: 'success', accent: '#2D6A4F' },
-  { id: 5, type: 'data',    icon: AlertCircle, title: 'Data Source Required',       desc: 'No data source connected. Connect one to start tracking.', time: 'Pending', status: 'pending', accent: '#C4952A' },
-  { id: 6, type: 'report',  icon: FileText,  title: 'GHG Report Queued',            desc: 'Monthly report will generate once data is connected.',     time: 'Waiting', status: 'pending', accent: '#C4952A' },
-  { id: 7, type: 'system',  icon: BarChart3, title: 'Analytics Ready',              desc: 'Dashboard analytics module is configured and ready.',      time: 'Today',   status: 'success', accent: '#2D6A4F' },
-];
-const LOG_FILTERS = ['All', 'Account', 'System', 'Data', 'Reports'];
-
-function ActivityLog() {
-  const [filter, setFilter] = useState('All');
-  const visible = filter === 'All'
-    ? ALL_ACTIVITIES
-    : ALL_ACTIVITIES.filter((a) => a.type === filter.toLowerCase());
-
-  return (
-    <div className="space-y-4">
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Events',  value: ALL_ACTIVITIES.length,                                       accent: '#2D6A4F' },
-          { label: 'Completed',     value: ALL_ACTIVITIES.filter((a) => a.status === 'success').length, accent: '#2D6A4F' },
-          { label: 'Pending',       value: ALL_ACTIVITIES.filter((a) => a.status === 'pending').length, accent: '#C4952A' },
-          { label: 'Days Active',   value: 1,                                                            accent: '#8B5E3C' },
-        ].map((s) => (
-          <Card key={s.label} className="p-4">
-            <p className="text-2xl font-bold" style={{ color: '#1A2118' }}>{s.value}</p>
-            <p className="text-xs mt-0.5 font-medium" style={{ color: '#9BAEA5' }}>{s.label}</p>
-          </Card>
-        ))}
-      </div>
-
-      {/* Filter + Timeline */}
-      <Card>
-        <div className="flex items-center gap-2 px-5 py-3 overflow-x-auto" style={{ borderBottom: '1px solid #E5EAE8' }}>
-          <Filter className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#9BAEA5' }} />
-          {LOG_FILTERS.map((f) => (
-            <button key={f} onClick={() => setFilter(f)}
-              className="text-xs font-semibold px-3 py-1.5 rounded-full flex-shrink-0 transition-all"
-              style={filter === f
-                ? { background: '#2D6A4F', color: '#ffffff' }
-                : { background: '#F4F6F4', color: '#7A9E8E', border: '1px solid #E5EAE8' }}>
-              {f}
-            </button>
-          ))}
-        </div>
-        <div className="divide-y" style={{ borderColor: '#F0EDE4' }}>
-          {visible.map((item, i) => {
-            const Icon = item.icon;
-            return (
-              <motion.div key={item.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.04 }}
-                className="flex items-center gap-4 px-6 py-3.5">
-                <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: `${item.accent}12`, border: `1px solid ${item.accent}22` }}>
-                  <Icon className="h-4 w-4" style={{ color: item.accent }} />
-                </div>
-                <p className="flex-1 text-sm" style={{ color: '#3D5247' }}>{item.title}</p>
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1"
-                  style={{
-                    background: item.status === 'success' ? '#EAF4EE' : '#FDF5E6',
-                    color:      item.status === 'success' ? '#2D6A4F' : '#C4952A',
-                  }}>
-                  {item.status === 'success'
-                    ? <><CheckCircle className="h-2.5 w-2.5" /> Done</>
-                    : <><Clock className="h-2.5 w-2.5" /> {item.time}</>}
-                </span>
-              </motion.div>
-            );
-          })}
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════
-   TAB 2 — CARBON CALCULATOR
+   TAB 1 — CARBON CALCULATOR
 ═══════════════════════════════════════════════════ */
 const CATEGORIES = {
   commute: {
@@ -550,13 +467,12 @@ function Leaderboard() {
    PAGE SHELL
 ═══════════════════════════════════════════════════ */
 const TABS = [
-  { id: 'log',         label: 'Activity Log',  icon: Activity    },
-  { id: 'calculator',  label: 'Calculator',    icon: Calculator  },
-  { id: 'leaderboard', label: 'Leaderboard',   icon: Trophy      },
+  { id: 'calculator',  label: 'Calculator',  icon: Calculator },
+  { id: 'leaderboard', label: 'Leaderboard', icon: Trophy     },
 ];
 
 export default function ActivitiesPage() {
-  const [tab, setTab] = useState('log');
+  const [tab, setTab] = useState('calculator');
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -564,7 +480,7 @@ export default function ActivitiesPage() {
       <div>
         <h1 className="text-lg font-bold" style={{ color: '#1A2118' }}>Activities</h1>
         <p className="text-sm mt-0.5" style={{ color: '#9BAEA5' }}>
-          Activity log · Personal carbon calculator · Employee leaderboard
+          Log your personal carbon footprint · See how you rank against your team
         </p>
       </div>
 
@@ -588,7 +504,6 @@ export default function ActivitiesPage() {
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.25 }}>
-          {tab === 'log'         && <ActivityLog />}
           {tab === 'calculator'  && <CarbonCalculator />}
           {tab === 'leaderboard' && <Leaderboard />}
         </motion.div>
