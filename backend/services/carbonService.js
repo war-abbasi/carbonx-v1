@@ -39,6 +39,89 @@ function getFactorInfo(category, subCategory) {
   return FACTORS[category]?.[subCategory] ?? null;
 }
 
+/* ─── Bulk CSV import (admin) ─────────────────── */
+async function bulkCreateEntries(adminId, rows) {
+  const inserted = [];
+  const errors   = [];
+
+  // Pre-fetch all users so we can resolve user_email → userId
+  const allUsers = await prisma.user.findMany({ select: { id: true, email: true } });
+  const emailMap = Object.fromEntries(allUsers.map((u) => [u.email.toLowerCase(), u.id]));
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 2; // 1-indexed, +1 for header row
+
+    try {
+      const { date, category, sub_category, quantity, description = '', user_email = '' } = row;
+
+      // Required fields
+      if (!date || !category || !sub_category || !quantity) {
+        errors.push({ row: rowNum, message: 'Missing required fields: date, category, sub_category, quantity' });
+        continue;
+      }
+
+      // Resolve userId
+      let userId = adminId;
+      if (user_email.trim()) {
+        const resolved = emailMap[user_email.trim().toLowerCase()];
+        if (!resolved) {
+          errors.push({ row: rowNum, message: `User not found: ${user_email}` });
+          continue;
+        }
+        userId = resolved;
+      }
+
+      // Validate date
+      const entryDate = new Date(date.trim());
+      if (isNaN(entryDate.getTime())) {
+        errors.push({ row: rowNum, message: `Invalid date "${date}" — use YYYY-MM-DD` });
+        continue;
+      }
+      if (entryDate > new Date()) {
+        errors.push({ row: rowNum, message: `Date ${date} is in the future — only past/present dates allowed` });
+        continue;
+      }
+
+      // Validate quantity
+      const qty = parseFloat(quantity);
+      if (isNaN(qty) || qty < 0) {
+        errors.push({ row: rowNum, message: `Invalid quantity "${quantity}" — must be a positive number` });
+        continue;
+      }
+
+      // Look up emission factor
+      const factorInfo = getFactorInfo(category.trim().toLowerCase(), sub_category.trim().toLowerCase());
+      if (!factorInfo) {
+        errors.push({ row: rowNum, message: `Unknown category/sub_category: "${category}"/"${sub_category}"` });
+        continue;
+      }
+
+      const valueKg = parseFloat((qty * factorInfo.factor).toFixed(4));
+
+      await prisma.carbonEntry.create({
+        data: {
+          userId,
+          category:    category.trim().toLowerCase(),
+          subCategory: sub_category.trim().toLowerCase(),
+          scope:       factorInfo.scope,
+          valueKg,
+          quantity:    qty,
+          unit:        factorInfo.unit,
+          description: description.trim() || null,
+          entryDate,
+        },
+      });
+
+      inserted.push(rowNum);
+    } catch (err) {
+      errors.push({ row: rowNum, message: err.message });
+    }
+  }
+
+  return { inserted: inserted.length, errors };
+}
+
 /* ─── Create entry ────────────────────────────── */
 async function createEntry({ userId, category, subCategory, quantity, description, entryDate }) {
   const factorInfo = getFactorInfo(category, subCategory);
@@ -479,4 +562,4 @@ async function getForecast(userId, isAdmin = false, forecastMonths = 6) {
   };
 }
 
-module.exports = { createEntry, getUserEntries, getLeaderboard, getUserSummary, getAnalytics, getForecast, FACTORS };
+module.exports = { createEntry, bulkCreateEntries, getUserEntries, getLeaderboard, getUserSummary, getAnalytics, getForecast, FACTORS };

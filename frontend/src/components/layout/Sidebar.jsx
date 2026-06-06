@@ -13,10 +13,9 @@ import iconImg from '../../assets/carbonx-icon.png';
 const ALL_NAV = [
   { icon: LayoutDashboard, label: 'Overview',    href: '/dashboard',            exact: true, adminOnly: false },
   { icon: Activity,        label: 'Activities',  href: '/dashboard/activities',              adminOnly: false },
-  { icon: BarChart3,       label: 'Analytics',   href: '/dashboard/analytics',               adminOnly: false },
-  { icon: MessageSquare,   label: 'AI Chat',     href: '/dashboard/chat',                    adminOnly: false },
-  { icon: Sparkles,        label: 'AI Insights', href: '/dashboard/insights',                adminOnly: false },
-  { icon: BrainCircuit,    label: 'Forecast',    href: '/dashboard/forecast',                adminOnly: false },
+  { icon: BarChart3,       label: 'AI Analytics', href: '/dashboard/analytics',               adminOnly: false },
+  { icon: MessageSquare,   label: 'AI Chat',      href: '/dashboard/chat',                    adminOnly: false },
+  { icon: Sparkles,        label: 'AI Insights',  href: '/dashboard/insights',                adminOnly: false },
   { icon: ShieldCheck,     label: 'Admin Panel', href: '/dashboard/admin',                   adminOnly: true  },
 ];
 

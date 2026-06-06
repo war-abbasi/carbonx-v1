@@ -19,6 +19,9 @@ export const carbonApi = {
   /** Get linear-regression emission forecast  months: 1–12 */
   getForecast: (months = 6) => api.get(`/carbon/forecast?months=${months}`),
 
+  /** Admin: bulk upload parsed CSV rows as JSON */
+  bulkUpload: (entries) => api.post('/carbon/bulk-upload', { entries }),
+
   /** Get emission factor catalogue */
   getFactors: () => api.get('/carbon/factors'),
 };

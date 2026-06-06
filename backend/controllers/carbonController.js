@@ -1,5 +1,5 @@
 const {
-  createEntry, getUserEntries, getLeaderboard,
+  createEntry, bulkCreateEntries, getUserEntries, getLeaderboard,
   getUserSummary, getAnalytics, getForecast, FACTORS,
 } = require('../services/carbonService');
 const { successResponse, errorResponse } = require('../utils/response');
@@ -75,6 +75,23 @@ async function analytics(req, res, next) {
   }
 }
 
+/* POST /api/carbon/bulk-upload  (admin only — parsed CSV rows as JSON) */
+async function bulkUpload(req, res, next) {
+  try {
+    const { entries } = req.body;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return errorResponse(res, 'entries array is required.', 400);
+    }
+    if (entries.length > 1000) {
+      return errorResponse(res, 'Maximum 1 000 rows per upload.', 400);
+    }
+    const result = await bulkCreateEntries(req.user.id, entries);
+    return successResponse(res, result, `${result.inserted} entries imported successfully.`);
+  } catch (err) {
+    next(err);
+  }
+}
+
 /* GET /api/carbon/forecast?months=6 */
 async function forecast(req, res, next) {
   try {
@@ -92,4 +109,4 @@ async function getFactors(req, res) {
   return successResponse(res, FACTORS, 'Emission factors fetched.');
 }
 
-module.exports = { submitEntry, getMyEntries, getSummary, leaderboard, analytics, forecast, getFactors };
+module.exports = { submitEntry, bulkUpload, getMyEntries, getSummary, leaderboard, analytics, forecast, getFactors };
