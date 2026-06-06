@@ -155,4 +155,126 @@ async function getUserSummary(userId) {
   return { total: parseFloat(total.toFixed(2)), byCategory, byScope };
 }
 
-module.exports = { createEntry, getUserEntries, getLeaderboard, getUserSummary, FACTORS };
+/* ─── Analytics ───────────────────────────────── */
+function getPeriodStart(period) {
+  const now = new Date();
+  if (period === '3months')  return new Date(now.getFullYear(), now.getMonth() - 3,  1);
+  if (period === '6months')  return new Date(now.getFullYear(), now.getMonth() - 6,  1);
+  /* default: year */        return new Date(now.getFullYear(), now.getMonth() - 11, 1);
+}
+
+async function getAnalytics(userId, isAdmin = false, period = 'year') {
+  const startDate = getPeriodStart(period);
+  const where     = {
+    entryDate: { gte: startDate },
+    ...(isAdmin ? {} : { userId }),
+  };
+
+  /* Pull all matching entries — small dataset per user so fine in memory */
+  const entries = await prisma.carbonEntry.findMany({
+    where,
+    select: { valueKg: true, scope: true, entryDate: true, category: true, subCategory: true },
+    orderBy: { entryDate: 'asc' },
+  });
+
+  const total  = entries.reduce((s, e) => s + e.valueKg, 0);
+  const scope1 = entries.filter((e) => e.scope === 'scope1').reduce((s, e) => s + e.valueKg, 0);
+  const scope2 = entries.filter((e) => e.scope === 'scope2').reduce((s, e) => s + e.valueKg, 0);
+  const scope3 = entries.filter((e) => e.scope === 'scope3').reduce((s, e) => s + e.valueKg, 0);
+
+  /* ── Monthly buckets ── */
+  const monthMap = {};
+  entries.forEach((e) => {
+    const d   = new Date(e.entryDate);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (!monthMap[key]) {
+      monthMap[key] = { year: d.getFullYear(), month: d.getMonth() + 1, total: 0, scope1: 0, scope2: 0, scope3: 0, personal: 0 };
+    }
+    monthMap[key].total += e.valueKg;
+    if (e.scope === 'scope1')    monthMap[key].scope1    += e.valueKg;
+    else if (e.scope === 'scope2') monthMap[key].scope2  += e.valueKg;
+    else if (e.scope === 'scope3') monthMap[key].scope3  += e.valueKg;
+    else                           monthMap[key].personal += e.valueKg;
+  });
+
+  /* Fill in missing months so chart has continuous x-axis */
+  const monthly = [];
+  const cursor  = new Date(startDate);
+  const end     = new Date();
+  while (cursor <= end) {
+    const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+    monthly.push({
+      year:     cursor.getFullYear(),
+      month:    cursor.getMonth() + 1,
+      label:    cursor.toLocaleString('en', { month: 'short' }),
+      total:    parseFloat((monthMap[key]?.total    ?? 0).toFixed(3)),
+      scope1:   parseFloat((monthMap[key]?.scope1   ?? 0).toFixed(3)),
+      scope2:   parseFloat((monthMap[key]?.scope2   ?? 0).toFixed(3)),
+      scope3:   parseFloat((monthMap[key]?.scope3   ?? 0).toFixed(3)),
+      personal: parseFloat((monthMap[key]?.personal ?? 0).toFixed(3)),
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  /* ── Category breakdown ── */
+  const catMap = {};
+  entries.forEach((e) => {
+    if (!catMap[e.category]) catMap[e.category] = 0;
+    catMap[e.category] += e.valueKg;
+  });
+  const byCategory = Object.entries(catMap)
+    .map(([category, kg]) => ({
+      category,
+      totalKg:    parseFloat(kg.toFixed(3)),
+      percentage: total > 0 ? parseFloat((kg / total * 100).toFixed(1)) : 0,
+    }))
+    .sort((a, b) => b.totalKg - a.totalKg);
+
+  /* ── Top sub-sources ── */
+  const srcMap = {};
+  entries.forEach((e) => {
+    const k = e.subCategory || e.category;
+    if (!srcMap[k]) srcMap[k] = 0;
+    srcMap[k] += e.valueKg;
+  });
+  const topSources = Object.entries(srcMap)
+    .map(([src, kg]) => ({
+      source:     src.replace(/_/g, ' '),
+      totalKg:    parseFloat(kg.toFixed(3)),
+      percentage: total > 0 ? parseFloat((kg / total * 100).toFixed(1)) : 0,
+    }))
+    .sort((a, b) => b.totalKg - a.totalKg)
+    .slice(0, 6);
+
+  /* ── Scope percentages ── */
+  const scopeBreakdown = [
+    { scope: 'Scope 1 — Direct',      key: 'scope1',   kg: scope1, color: '#2D6A4F' },
+    { scope: 'Scope 2 — Indirect',    key: 'scope2',   kg: scope2, color: '#C4952A' },
+    { scope: 'Scope 3 — Value Chain', key: 'scope3',   kg: scope3, color: '#8B5E3C' },
+    { scope: 'Personal',              key: 'personal', kg: total - scope1 - scope2 - scope3, color: '#52B788' },
+  ]
+    .filter((s) => s.kg > 0)
+    .map((s) => ({
+      ...s,
+      kg:         parseFloat(s.kg.toFixed(3)),
+      percentage: total > 0 ? parseFloat((s.kg / total * 100).toFixed(1)) : 0,
+    }));
+
+  return {
+    kpis: {
+      total:       parseFloat(total.toFixed(3)),
+      scope1:      parseFloat(scope1.toFixed(3)),
+      scope2:      parseFloat(scope2.toFixed(3)),
+      scope3:      parseFloat(scope3.toFixed(3)),
+      entryCount:  entries.length,
+    },
+    monthly,
+    byCategory,
+    topSources,
+    scopeBreakdown,
+    period,
+    isOrgWide: isAdmin,
+  };
+}
+
+module.exports = { createEntry, getUserEntries, getLeaderboard, getUserSummary, getAnalytics, FACTORS };

@@ -13,6 +13,9 @@ export const carbonApi = {
   /** Get leaderboard  period: 'all' | 'week' | 'month' */
   getLeaderboard: (period = 'all') => api.get(`/carbon/leaderboard?period=${period}`),
 
+  /** Get analytics  period: 'year' | '6months' | '3months' */
+  getAnalytics: (period = 'year') => api.get(`/carbon/analytics?period=${period}`),
+
   /** Get emission factor catalogue */
   getFactors: () => api.get('/carbon/factors'),
 };

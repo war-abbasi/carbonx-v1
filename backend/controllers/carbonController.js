@@ -1,6 +1,6 @@
 const {
   createEntry, getUserEntries, getLeaderboard,
-  getUserSummary, FACTORS,
+  getUserSummary, getAnalytics, FACTORS,
 } = require('../services/carbonService');
 const { successResponse, errorResponse } = require('../utils/response');
 
@@ -62,9 +62,22 @@ async function leaderboard(req, res, next) {
   }
 }
 
+/* GET /api/carbon/analytics?period=year|6months|3months */
+async function analytics(req, res, next) {
+  try {
+    const period  = ['year', '6months', '3months'].includes(req.query.period)
+      ? req.query.period : 'year';
+    const isAdmin = req.user.role === 'ADMIN';
+    const data    = await getAnalytics(req.user.id, isAdmin, period);
+    return successResponse(res, data, 'Analytics fetched.');
+  } catch (err) {
+    next(err);
+  }
+}
+
 /* GET /api/carbon/factors — return emission factor catalogue */
 async function getFactors(req, res) {
   return successResponse(res, FACTORS, 'Emission factors fetched.');
 }
 
-module.exports = { submitEntry, getMyEntries, getSummary, leaderboard, getFactors };
+module.exports = { submitEntry, getMyEntries, getSummary, leaderboard, analytics, getFactors };
