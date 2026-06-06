@@ -1,48 +1,60 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, User, RefreshCw, Copy, Check } from 'lucide-react';
+import {
+  Send, Sparkles, User, Plus, Trash2,
+  MessageSquare, ChevronLeft, ChevronRight,
+  Copy, Check, RefreshCw, Pencil, X,
+} from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import iconImg from '../../assets/carbonx-icon.png';
+import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-/* ── Initial greeting ─────────────────────────── */
-function makeGreeting() {
-  return {
-    id: 'init', role: 'assistant', done: true,
-    text: "Hello! I'm **CarbonX AI**, your carbon management assistant.\n\nI have access to your real emission data and can help you:\n• Understand your biggest emission sources\n• Explain GHG Protocol and carbon accounting\n• Suggest specific reduction strategies\n• Analyse your sustainability progress\n\nAap **Roman Urdu** mein bhi pooch sakte hain — main samajhta hoon! 🌿\n\nWhat would you like to know?",
-    time: now(),
-  };
-}
-
+/* ─── helpers ─────────────────────────────────── */
 function now() {
   return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
+function relativeDate(iso) {
+  const d    = new Date(iso);
+  const diff = (Date.now() - d) / 86400000;
+  if (diff < 1)   return 'Today';
+  if (diff < 2)   return 'Yesterday';
+  if (diff < 7)   return 'This Week';
+  if (diff < 30)  return 'This Month';
+  return d.toLocaleString('en', { month: 'short', year: 'numeric' });
+}
+function groupByDate(convs) {
+  const groups = {};
+  convs.forEach(c => {
+    const label = relativeDate(c.updatedAt);
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(c);
+  });
+  return groups;
+}
 
-/* ── Quick prompts ───────────────────────────── */
 const QUICK_PROMPTS = [
   "What's my biggest emission source?",
   "Mera footprint kam karne ke liye kya karun?",
   "Explain Scope 3 emissions",
   "Aaj ke liye 3 tips do carbon reduce karne ki",
-  "Compare my emission categories",
+  "Give me a 30-day reduction plan",
   "What is net-zero?",
 ];
 
-/* ── Markdown renderer ───────────────────────── */
+/* ─── Markdown renderer ───────────────────────── */
 function MsgText({ text }) {
   return (
     <div className="text-sm leading-relaxed space-y-1" style={{ color: '#3D5247' }}>
       {text.split('\n').map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-1" />;
-        const parts = line.split(/\*\*(.*?)\*\*/g);
+        const parts    = line.split(/\*\*(.*?)\*\*/g);
         const rendered = parts.map((p, j) =>
-          j % 2 === 1
-            ? <strong key={j} style={{ color: '#1A2118' }}>{p}</strong>
-            : p
+          j % 2 === 1 ? <strong key={j} style={{ color: '#1A2118' }}>{p}</strong> : p
         );
-        if (line.startsWith('• ') || line.startsWith('- ')) {
+        if (/^[•\-] /.test(line)) {
           return (
             <div key={i} className="flex gap-2">
               <span className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: '#2D6A4F' }} />
@@ -56,20 +68,33 @@ function MsgText({ text }) {
   );
 }
 
-/* ── Copy button ─────────────────────────────── */
+/* ─── Copy button ─────────────────────────────── */
 function CopyBtn({ text }) {
   const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
   return (
-    <button onClick={copy}
-      className="p-1 rounded transition-opacity opacity-0 group-hover:opacity-100"
-      style={{ color: '#9BAEA5' }} title="Copy">
+    <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="p-1 rounded transition-opacity opacity-0 group-hover:opacity-100" style={{ color: '#9BAEA5' }}>
       {copied ? <Check className="h-3 w-3" style={{ color: '#2D6A4F' }} /> : <Copy className="h-3 w-3" />}
     </button>
+  );
+}
+
+/* ─── Typing dots ─────────────────────────────── */
+function TypingDots() {
+  return (
+    <div className="flex gap-3">
+      <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+        style={{ background: '#EAF4EE', border: '1.5px solid #C0DDD0' }}>
+        <Sparkles className="h-3.5 w-3.5" style={{ color: '#2D6A4F' }} />
+      </div>
+      <div className="px-4 py-3 rounded-2xl flex items-center gap-1.5"
+        style={{ background: '#ffffff', border: '1px solid #E5EAE8', borderBottomLeftRadius: '6px' }}>
+        {[0,1,2].map(i => (
+          <motion.span key={i} className="h-1.5 w-1.5 rounded-full" style={{ background: '#9BAEA5' }}
+            animate={{ y: [0,-5,0] }} transition={{ duration: 0.55, delay: i * 0.12, repeat: Infinity }} />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -77,34 +102,108 @@ function CopyBtn({ text }) {
    PAGE
 ═══════════════════════════════════════════════ */
 export default function ChatPage() {
-  const { token, user }  = useAuthStore();
-  const [messages,  setMessages]  = useState([makeGreeting()]);
-  const [input,     setInput]     = useState('');
-  const [streaming, setStreaming] = useState(false);
-  const [apiOk,     setApiOk]     = useState(true);
-  const bottomRef   = useRef(null);
-  const inputRef    = useRef(null);
-  const abortRef    = useRef(null);
+  const { token }           = useAuthStore();
+  const [convs,       setConvs]       = useState([]);
+  const [activeId,    setActiveId]    = useState(null);
+  const [messages,    setMessages]    = useState([]);
+  const [input,       setInput]       = useState('');
+  const [streaming,   setStreaming]   = useState(false);
+  const [loadingConvs, setLoadingConvs] = useState(true);
+  const [loadingMsgs,  setLoadingMsgs]  = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [editingId,   setEditingId]   = useState(null);
+  const [editTitle,   setEditTitle]   = useState('');
+  const [apiOk,       setApiOk]       = useState(true);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const bottomRef  = useRef(null);
+  const abortRef   = useRef(null);
+  const inputRef   = useRef(null);
+  const editRef    = useRef(null);
 
+  /* scroll to bottom on new messages */
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  /* focus edit input */
+  useEffect(() => { if (editingId) editRef.current?.focus(); }, [editingId]);
+
+  /* ── Load conversation list ── */
+  const loadConvs = useCallback(async () => {
+    setLoadingConvs(true);
+    try {
+      const { data: res } = await api.get('/conversations');
+      setConvs(res.data ?? []);
+    } catch { toast.error('Could not load chat history'); }
+    finally { setLoadingConvs(false); }
+  }, []);
+
+  useEffect(() => { loadConvs(); }, [loadConvs]);
+
+  /* ── Load messages for a conversation ── */
+  const openConv = useCallback(async (id) => {
+    setActiveId(id);
+    setMessages([]);
+    setLoadingMsgs(true);
+    try {
+      const { data: res } = await api.get(`/conversations/${id}`);
+      const msgs = (res.data?.messages ?? []).map(m => ({
+        id:   m.id,
+        role: m.role,
+        text: m.content,
+        time: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        done: true,
+      }));
+      setMessages(msgs);
+    } catch { toast.error('Could not load messages'); }
+    finally { setLoadingMsgs(false); }
+  }, []);
+
+  /* ── New chat ── */
+  const newChat = () => {
+    abortRef.current?.abort();
+    setActiveId(null);
+    setMessages([]);
+    setInput('');
+    setStreaming(false);
+    inputRef.current?.focus();
+  };
+
+  /* ── Delete conversation ── */
+  const deleteConv = async (e, id) => {
+    e.stopPropagation();
+    try {
+      await api.delete(`/conversations/${id}`);
+      setConvs(prev => prev.filter(c => c.id !== id));
+      if (activeId === id) newChat();
+    } catch { toast.error('Could not delete conversation'); }
+  };
+
+  /* ── Rename ── */
+  const saveRename = async (id) => {
+    const title = editTitle.trim();
+    if (!title) { setEditingId(null); return; }
+    try {
+      await api.patch(`/conversations/${id}`, { title });
+      setConvs(prev => prev.map(c => c.id === id ? { ...c, title } : c));
+    } catch { toast.error('Could not rename'); }
+    setEditingId(null);
+  };
+
+  /* ── Send message ── */
   const send = useCallback(async (text) => {
     const msg = text.trim();
     if (!msg || streaming) return;
     setInput('');
 
-    const userMsg = { id: Date.now(), role: 'user', text: msg, time: now(), done: true };
-    const assistantId = Date.now() + 1;
-    const assistantMsg = { id: assistantId, role: 'assistant', text: '', time: now(), done: false };
+    const userMsg      = { id: Date.now(),     role: 'user',      text: msg, time: now(), done: true };
+    const assistantId  = Date.now() + 1;
+    const placeholder  = { id: assistantId,    role: 'assistant', text: '',  time: now(), done: false };
 
-    setMessages(prev => [...prev, userMsg, assistantMsg]);
+    setMessages(prev => [...prev, userMsg, placeholder]);
     setStreaming(true);
 
     try {
-      /* Build history excluding the empty placeholder we just added */
-      const history = [...messages, userMsg].filter(m => m.done).map(m => ({
+      /* Build history from current messages + new user msg */
+      const history = [...messages.filter(m => m.done), userMsg].map(m => ({
         role: m.role, text: m.text,
       }));
 
@@ -113,12 +212,9 @@ export default function ChatPage() {
 
       const resp = await fetch(`${API_BASE}/chat`, {
         method:  'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body:   JSON.stringify({ messages: history }),
-        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body:    JSON.stringify({ messages: history, conversationId: activeId }),
+        signal:  controller.signal,
       });
 
       if (!resp.ok) {
@@ -131,188 +227,331 @@ export default function ChatPage() {
       const reader  = resp.body.getReader();
       const decoder = new TextDecoder();
       let accumulated = '';
+      let newConvId   = activeId;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+        const lines = decoder.decode(value, { stream: true }).split('\n')
+          .filter(l => l.startsWith('data: '));
 
         for (const line of lines) {
           try {
             const data = JSON.parse(line.slice(6));
+
+            /* First event: server tells us the conversationId */
+            if (data.init) {
+              newConvId = data.conversationId;
+              setActiveId(data.conversationId);
+              /* Refresh sidebar list to show new/updated conversation */
+              loadConvs();
+            }
+
             if (data.text) {
               accumulated += data.text;
               setMessages(prev => prev.map(m =>
                 m.id === assistantId ? { ...m, text: accumulated } : m
               ));
             }
+
             if (data.done) {
               setMessages(prev => prev.map(m =>
                 m.id === assistantId ? { ...m, done: true } : m
               ));
+              /* Refresh sidebar to update title and updatedAt */
+              loadConvs();
             }
+
             if (data.error) throw new Error(data.error);
-          } catch (parseErr) { /* skip malformed chunk */ }
+          } catch (parseErr) { /* skip malformed */ }
         }
       }
     } catch (err) {
       if (err.name === 'AbortError') return;
-      const errText = err.message ?? 'Something went wrong. Please try again.';
+      const errText = err.message ?? 'Something went wrong.';
       setMessages(prev => prev.map(m =>
-        m.id === assistantId
-          ? { ...m, text: `⚠️ ${errText}`, done: true }
-          : m
+        m.id === assistantId ? { ...m, text: `⚠️ ${errText}`, done: true } : m
       ));
       toast.error(errText.length > 60 ? errText.slice(0, 60) + '…' : errText);
     } finally {
       setStreaming(false);
       inputRef.current?.focus();
     }
-  }, [messages, streaming, token]);
+  }, [messages, streaming, token, activeId, loadConvs]);
 
-  const reset = () => {
-    abortRef.current?.abort();
-    setMessages([makeGreeting()]);
-    setStreaming(false);
-    setInput('');
-  };
+  /* ─── group conversations by date ─── */
+  const groups = groupByDate(convs);
+  const GROUP_ORDER = ['Today', 'Yesterday', 'This Week', 'This Month'];
+  const allGroups = [
+    ...GROUP_ORDER.filter(g => groups[g]),
+    ...Object.keys(groups).filter(g => !GROUP_ORDER.includes(g)),
+  ];
 
+  /* ═══════════════════ RENDER ════════════════════ */
   return (
-    <div className="flex flex-col animate-fade-in" style={{ height: 'calc(100vh - 7rem)' }}>
+    <div className="flex rounded-xl overflow-hidden animate-fade-in"
+      style={{ height: 'calc(100vh - 7rem)', border: '1px solid #E5EAE8' }}>
 
-      {/* ── Header ── */}
-      <div className="flex items-center gap-3 px-5 py-3.5 rounded-t-xl"
-        style={{ background:'#ffffff', border:'1px solid #E5EAE8', borderBottom:'none' }}>
-        <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ background:'#EAF4EE', border:'2px solid #C0DDD0' }}>
-          <img src={iconImg} alt="AI" className="h-5 w-5 object-contain" />
+      {/* ══════════════════════════════════════
+          LEFT SIDEBAR
+      ══════════════════════════════════════ */}
+      <AnimatePresence initial={false}>
+        {sidebarOpen && (
+          <motion.aside
+            key="sidebar"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 260, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex flex-col flex-shrink-0 overflow-hidden"
+            style={{ background: '#F8FAF8', borderRight: '1px solid #E5EAE8' }}>
+
+            {/* Sidebar header */}
+            <div className="flex items-center gap-2 px-3 py-3"
+              style={{ borderBottom: '1px solid #E5EAE8' }}>
+              <img src={iconImg} alt="" className="h-5 w-5 object-contain flex-shrink-0" />
+              <span className="text-xs font-bold flex-1 truncate" style={{ color: '#1A2118' }}>CarbonX AI</span>
+              <button onClick={() => setSidebarOpen(false)}
+                className="p-1 rounded hover:bg-gray-200 transition-colors" style={{ color: '#9BAEA5' }}>
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* New Chat button */}
+            <div className="px-3 py-2">
+              <button onClick={newChat}
+                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                style={{ background: '#2D6A4F', color: '#ffffff' }}>
+                <Plus className="h-4 w-4" /> New Chat
+              </button>
+            </div>
+
+            {/* Conversation list */}
+            <div className="flex-1 overflow-y-auto px-2 py-1 space-y-3">
+              {loadingConvs ? (
+                <p className="text-xs text-center py-6" style={{ color: '#9BAEA5' }}>Loading…</p>
+              ) : convs.length === 0 ? (
+                <div className="flex flex-col items-center py-8 px-4 text-center">
+                  <MessageSquare className="h-8 w-8 mb-2" style={{ color: '#C0DDD0' }} />
+                  <p className="text-xs" style={{ color: '#9BAEA5' }}>No conversations yet</p>
+                  <p className="text-xs mt-1" style={{ color: '#BFCDC7' }}>Start chatting below</p>
+                </div>
+              ) : (
+                allGroups.map(group => (
+                  <div key={group}>
+                    <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider"
+                      style={{ color: '#9BAEA5' }}>{group}</p>
+                    {groups[group].map(conv => (
+                      <div key={conv.id}
+                        onClick={() => openConv(conv.id)}
+                        className="group relative flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all mb-0.5"
+                        style={conv.id === activeId
+                          ? { background: '#EAF4EE', borderLeft: '3px solid #2D6A4F' }
+                          : { borderLeft: '3px solid transparent' }}>
+
+                        {editingId === conv.id ? (
+                          <input ref={editRef}
+                            value={editTitle}
+                            onChange={e => setEditTitle(e.target.value)}
+                            onBlur={() => saveRename(conv.id)}
+                            onKeyDown={e => { if (e.key === 'Enter') saveRename(conv.id); if (e.key === 'Escape') setEditingId(null); }}
+                            onClick={e => e.stopPropagation()}
+                            className="flex-1 text-xs outline-none rounded px-1 py-0.5"
+                            style={{ background: '#fff', border: '1px solid #2D6A4F', color: '#1A2118' }} />
+                        ) : (
+                          <>
+                            <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" style={{ color: conv.id === activeId ? '#2D6A4F' : '#9BAEA5' }} />
+                            <span className="flex-1 text-xs truncate"
+                              style={{ color: conv.id === activeId ? '#1B4332' : '#3D5247', fontWeight: conv.id === activeId ? 600 : 400 }}>
+                              {conv.title}
+                            </span>
+                          </>
+                        )}
+
+                        {/* Action icons — show on hover */}
+                        {editingId !== conv.id && (
+                          <div className="absolute right-1.5 hidden group-hover:flex items-center gap-0.5"
+                            style={{ background: conv.id === activeId ? '#EAF4EE' : '#F8FAF8' }}>
+                            <button onClick={e => { e.stopPropagation(); setEditingId(conv.id); setEditTitle(conv.title); }}
+                              className="p-1 rounded hover:bg-white transition-colors" style={{ color: '#9BAEA5' }}>
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button onClick={e => deleteConv(e, conv.id)}
+                              className="p-1 rounded hover:bg-red-50 transition-colors" style={{ color: '#9BAEA5' }}>
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════════════════════════════════
+          RIGHT PANEL — messages
+      ══════════════════════════════════════ */}
+      <div className="flex-1 flex flex-col min-w-0" style={{ background: '#ffffff' }}>
+
+        {/* Top bar */}
+        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+          style={{ borderBottom: '1px solid #E5EAE8', background: '#ffffff' }}>
+          {!sidebarOpen && (
+            <button onClick={() => setSidebarOpen(true)}
+              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: '#9BAEA5' }}>
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+          <div className="flex items-center gap-2.5 flex-1">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: '#EAF4EE', border: '2px solid #C0DDD0' }}>
+              <img src={iconImg} alt="AI" className="h-4 w-4 object-contain" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold leading-tight" style={{ color: '#1A2118' }}>CarbonX AI</p>
+              <p className="text-[10px] flex items-center gap-1" style={{ color: apiOk ? '#2D6A4F' : '#C4952A' }}>
+                <span className={`h-1.5 w-1.5 rounded-full ${apiOk ? 'bg-green-400 animate-pulse' : 'bg-amber-400'}`} />
+                {apiOk ? 'LLaMA 3.3 · data-aware · English & Roman Urdu' : 'GROQ_API_KEY not set'}
+              </p>
+            </div>
+          </div>
+          <button onClick={newChat}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
+            style={{ background: '#F4F6F4', color: '#5A7A6D', border: '1px solid #E5EAE8' }}>
+            <Plus className="h-3.5 w-3.5" /> New
+          </button>
         </div>
-        <div className="flex-1">
-          <p className="text-sm font-semibold" style={{ color:'#1A2118' }}>CarbonX AI</p>
-          <p className="text-xs flex items-center gap-1.5" style={{ color: apiOk ? '#2D6A4F' : '#C4952A' }}>
-            <span className={`h-1.5 w-1.5 rounded-full ${apiOk ? 'bg-green-400 animate-pulse' : 'bg-amber-400'}`} />
-            {apiOk ? 'Powered by LLaMA 3.3 · Roman Urdu · aware of your data' : 'GROQ_API_KEY not configured'}
-          </p>
-        </div>
-        <button onClick={reset}
-          className="p-2 rounded-lg transition-colors hover:bg-gray-50"
-          style={{ color:'#9BAEA5' }} title="New conversation">
-          <RefreshCw className="h-4 w-4" />
-        </button>
-      </div>
 
-      {/* ── Messages ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
-        style={{ background:'#F8FAF8', border:'1px solid #E5EAE8', borderTop:'none', borderBottom:'none' }}>
+        {/* Messages area */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
+          style={{ background: '#F8FAF8' }}>
 
-        <AnimatePresence initial={false}>
-          {messages.map((m) => (
-            <motion.div key={m.id}
-              initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }}
-              transition={{ duration:0.25 }}
-              className={`flex gap-3 ${m.role==='user'?'flex-row-reverse':''}`}>
-
-              {/* Avatar */}
-              <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                style={m.role==='assistant'
-                  ? { background:'#EAF4EE', border:'1.5px solid #C0DDD0' }
-                  : { background:'#2D6A4F' }}>
-                {m.role==='assistant'
-                  ? <Sparkles className="h-3.5 w-3.5" style={{ color:'#2D6A4F' }} />
-                  : <User className="h-3.5 w-3.5 text-white" />}
+          {/* Welcome screen when no active conversation */}
+          {!activeId && messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+                style={{ background: '#EAF4EE', border: '2px solid #C0DDD0' }}>
+                <img src={iconImg} alt="" className="h-8 w-8 object-contain" />
               </div>
+              <h2 className="text-lg font-bold mb-2" style={{ color: '#1A2118' }}>CarbonX AI</h2>
+              <p className="text-sm max-w-sm leading-relaxed" style={{ color: '#7A9E8E' }}>
+                Your personal carbon management assistant. I know your emission data and can answer in
+                <strong style={{ color: '#2D6A4F' }}> English</strong> or
+                <strong style={{ color: '#2D6A4F' }}> Roman Urdu</strong>.
+              </p>
+              <div className="mt-6 grid grid-cols-2 gap-2 w-full max-w-md">
+                {QUICK_PROMPTS.map(p => (
+                  <button key={p} onClick={() => send(p)}
+                    className="text-xs text-left px-3 py-2.5 rounded-xl transition-all hover:opacity-80"
+                    style={{ background: '#fff', border: '1px solid #E5EAE8', color: '#3D5247' }}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-              {/* Bubble */}
-              <div className={`max-w-[78%] flex flex-col group ${m.role==='user'?'items-end':'items-start'}`}>
-                <div className="px-4 py-3 rounded-2xl"
-                  style={m.role==='assistant'
-                    ? { background:'#ffffff', border:'1px solid #E5EAE8', borderBottomLeftRadius:'6px' }
-                    : { background:'#2D6A4F', borderBottomRightRadius:'6px' }}>
-                  {m.role==='assistant'
-                    ? <>
-                        <MsgText text={m.text} />
-                        {/* Streaming cursor */}
+          {/* Loading messages spinner */}
+          {loadingMsgs && (
+            <div className="flex items-center justify-center py-10">
+              <RefreshCw className="h-5 w-5 animate-spin" style={{ color: '#9BAEA5' }} />
+            </div>
+          )}
+
+          {/* Message bubbles */}
+          <AnimatePresence initial={false}>
+            {messages.map(m => (
+              <motion.div key={m.id}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+
+                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                  style={m.role === 'assistant'
+                    ? { background: '#EAF4EE', border: '1.5px solid #C0DDD0' }
+                    : { background: '#2D6A4F' }}>
+                  {m.role === 'assistant'
+                    ? <Sparkles className="h-3.5 w-3.5" style={{ color: '#2D6A4F' }} />
+                    : <User className="h-3.5 w-3.5 text-white" />}
+                </div>
+
+                <div className={`max-w-[78%] flex flex-col group ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                  <div className="px-4 py-3 rounded-2xl"
+                    style={m.role === 'assistant'
+                      ? { background: '#ffffff', border: '1px solid #E5EAE8', borderBottomLeftRadius: '6px' }
+                      : { background: '#2D6A4F', borderBottomRightRadius: '6px' }}>
+                    {m.role === 'assistant' ? (
+                      <>
+                        {m.text ? <MsgText text={m.text} /> : null}
                         {!m.done && (
                           <motion.span className="inline-block w-0.5 h-4 ml-0.5 align-middle rounded"
-                            style={{ background:'#9BAEA5' }}
-                            animate={{ opacity:[1,0] }}
-                            transition={{ duration:0.6, repeat:Infinity }} />
+                            style={{ background: '#9BAEA5' }}
+                            animate={{ opacity: [1, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity }} />
                         )}
                       </>
-                    : <p className="text-sm text-white">{m.text}</p>
-                  }
+                    ) : (
+                      <p className="text-sm text-white leading-relaxed">{m.text}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1 px-1">
+                    <span className="text-[10px]" style={{ color: '#BFCDC7' }}>{m.time}</span>
+                    {m.role === 'assistant' && m.done && m.text && <CopyBtn text={m.text} />}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 mt-1 px-1">
-                  <span className="text-[10px]" style={{ color:'#BFCDC7' }}>{m.time}</span>
-                  {m.role==='assistant' && m.done && m.text && <CopyBtn text={m.text} />}
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+              </motion.div>
+            ))}
+          </AnimatePresence>
 
-        {/* Typing dots while waiting for first chunk */}
-        {streaming && messages[messages.length-1]?.text === '' && (
-          <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} className="flex gap-3">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background:'#EAF4EE', border:'1.5px solid #C0DDD0' }}>
-              <Sparkles className="h-3.5 w-3.5" style={{ color:'#2D6A4F' }} />
-            </div>
-            <div className="px-4 py-3 rounded-2xl flex items-center gap-1.5"
-              style={{ background:'#ffffff', border:'1px solid #E5EAE8', borderBottomLeftRadius:'6px' }}>
-              {[0,1,2].map(i=>(
-                <motion.span key={i} className="h-1.5 w-1.5 rounded-full"
-                  style={{ background:'#9BAEA5' }}
-                  animate={{ y:[0,-5,0] }}
-                  transition={{ duration:0.55, delay:i*0.12, repeat:Infinity }} />
-              ))}
-            </div>
-          </motion.div>
+          {/* Typing dots while waiting for first token */}
+          {streaming && messages[messages.length - 1]?.text === '' && <TypingDots />}
+
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Quick prompts strip (only when conversation active) */}
+        {(activeId || messages.length > 0) && (
+          <div className="px-4 py-2 flex gap-2 overflow-x-auto flex-shrink-0"
+            style={{ borderTop: '1px solid #F0EDE4', background: '#ffffff' }}>
+            {QUICK_PROMPTS.slice(0, 4).map(p => (
+              <button key={p} onClick={() => send(p)} disabled={streaming}
+                className="text-xs font-medium px-3 py-1.5 rounded-full flex-shrink-0 transition-all hover:opacity-80 disabled:opacity-40"
+                style={{ background: '#EAF4EE', color: '#2D6A4F', border: '1px solid #C0DDD0' }}>
+                {p}
+              </button>
+            ))}
+          </div>
         )}
 
-        <div ref={bottomRef} />
-      </div>
-
-      {/* ── Quick prompts ── */}
-      <div className="px-4 py-2.5 flex gap-2 overflow-x-auto scrollbar-hide"
-        style={{ background:'#ffffff', border:'1px solid #E5EAE8', borderTop:'1px solid #F0EDE4', borderBottom:'none' }}>
-        {QUICK_PROMPTS.map(p=>(
-          <button key={p} onClick={()=>send(p)} disabled={streaming}
-            className="text-xs font-medium px-3 py-1.5 rounded-full flex-shrink-0 transition-all hover:opacity-80 disabled:opacity-40"
-            style={{ background:'#EAF4EE', color:'#2D6A4F', border:'1px solid #C0DDD0' }}>
-            {p}
+        {/* Input */}
+        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+          style={{ background: '#ffffff', borderTop: '1px solid #E5EAE8' }}>
+          <input ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); }}}
+            placeholder="Ask in English or Roman Urdu…"
+            className="flex-1 text-sm outline-none bg-transparent"
+            style={{ color: '#1A2118' }}
+            disabled={streaming} />
+          {streaming && (
+            <button onClick={() => abortRef.current?.abort()}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg"
+              style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+              Stop
+            </button>
+          )}
+          <button onClick={() => send(input)} disabled={!input.trim() || streaming}
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40 hover:opacity-90"
+            style={{ background: '#2D6A4F' }}>
+            <Send className="h-4 w-4 text-white" />
           </button>
-        ))}
-      </div>
-
-      {/* ── Input ── */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-b-xl"
-        style={{ background:'#ffffff', border:'1px solid #E5EAE8', borderTop:'none' }}>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e=>setInput(e.target.value)}
-          onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(input); }}}
-          placeholder="Ask anything about your carbon footprint…"
-          className="flex-1 text-sm outline-none bg-transparent"
-          style={{ color:'#1A2118' }}
-          disabled={streaming}
-        />
-        {streaming && (
-          <button onClick={()=>abortRef.current?.abort()}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
-            style={{ background:'#FEF2F2', color:'#DC2626', border:'1px solid #FECACA' }}>
-            Stop
-          </button>
-        )}
-        <button onClick={()=>send(input)}
-          disabled={!input.trim()||streaming}
-          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40"
-          style={{ background:'#2D6A4F' }}>
-          <Send className="h-4 w-4 text-white" />
-        </button>
+        </div>
       </div>
     </div>
   );
