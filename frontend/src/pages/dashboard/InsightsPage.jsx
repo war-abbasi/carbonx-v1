@@ -5,7 +5,7 @@ import {
   TrendingDown, TrendingUp, Minus,
   Loader2, AlertCircle, CheckCircle, RefreshCw,
   Trophy, Flame, Clock, ChevronRight, Calculator,
-  ExternalLink, Info,
+  ExternalLink, Info, Zap, FileText, Download, Lightbulb,
 } from 'lucide-react';
 import { insightsApi } from '../../api/insightsApi';
 import { carbonApi }   from '../../api/carbonApi';
@@ -189,9 +189,10 @@ function RecommendationsTab() {
    TAB 2 — CHALLENGES
 ════════════════════════════════════════════════ */
 function ChallengesTab() {
-  const [challenges, setChallenges] = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [acting,     setActing]     = useState(null); // challengeId being actioned
+  const [challenges,  setChallenges]  = useState([]);
+  const [suggestion,  setSuggestion]  = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [acting,      setActing]      = useState(null); // challengeId being actioned
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -202,7 +203,13 @@ function ChallengesTab() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    // Load suggested challenge
+    insightsApi.suggestChallenge()
+      .then(({ data: res }) => setSuggestion(res.data?.suggestion))
+      .catch(() => {}); // Silently fail, it's optional
+  }, [load]);
 
   const doJoin = async (id) => {
     setActing(id);
@@ -248,6 +255,32 @@ function ChallengesTab() {
 
   return (
     <div className="space-y-6">
+
+      {/* AI Suggested Challenge */}
+      {suggestion && !active.find(c => c.id === suggestion.challengeId) && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+          <Card className="p-5 border-2" style={{ borderColor: '#C4952A', background: '#FDF5E6' }}>
+            <div className="flex items-start gap-4">
+              <div className="text-3xl flex-shrink-0">{suggestion.challenge?.icon}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <h3 className="text-base font-bold" style={{ color: '#1A2118' }}>{suggestion.challenge?.title}</h3>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#2D6A4F', color: '#fff' }}>
+                    🤖 Recommended for you
+                  </span>
+                </div>
+                <p className="text-xs mb-3 leading-relaxed" style={{ color: '#5A7A6D' }}>{suggestion.reasoning}</p>
+                <button onClick={() => doJoin(suggestion.challengeId)} disabled={acting === suggestion.challengeId}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{ background: suggestion.challenge?.category === 'commute' ? '#2D6A4F' : '#52B788' }}>
+                  {acting === suggestion.challengeId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                  Join Challenge
+                </button>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
@@ -695,6 +728,188 @@ function OffsetTab() {
 }
 
 /* ════════════════════════════════════════════════
+   TAB 5 — AI GOALS
+════════════════════════════════════════════════ */
+function GoalsTab() {
+  const [goals,   setGoals]   = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    insightsApi.getSuggestedGoals()
+      .then(({ data: res }) => setGoals(res.data?.goals ?? []))
+      .catch(() => toast.error('Could not load goals'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: '#9BAEA5' }} /></div>;
+
+  if (!goals.length) return (
+    <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+      <Zap className="h-12 w-12 mb-4" style={{ color: '#C0DDD0' }} />
+      <h3 className="text-base font-semibold mb-2" style={{ color: '#1A2118' }}>No goals yet</h3>
+      <p className="text-sm max-w-xs" style={{ color: '#9BAEA5' }}>Log carbon entries for a few weeks to get AI-powered reduction goals.</p>
+    </div>
+  );
+
+  const CONF = { High: '#2D6A4F', Medium: '#C4952A', Low: '#DC2626' };
+
+  return (
+    <div className="space-y-5">
+      {goals.map((g, i) => (
+        <motion.div key={i} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08, duration: 0.4 }}>
+          <Card className="p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold" style={{ color: '#1A2118' }}>{g.period}</h3>
+                <p className="text-sm mt-1" style={{ color: '#9BAEA5' }}>Realistic reduction target</p>
+              </div>
+              <span className="text-sm font-bold px-3 py-1 rounded-full"
+                style={{ background: `${CONF[g.confidence] || '#9BAEA5'}18`, color: CONF[g.confidence] || '#9BAEA5' }}>
+                {g.confidence} confidence
+              </span>
+            </div>
+
+            {/* Progress visual */}
+            <div className="mb-5 p-4 rounded-xl" style={{ background: '#F8FAF8', border: '1px solid #E5EAE8' }}>
+              <div className="flex items-end justify-between mb-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider" style={{ color: '#9BAEA5' }}>Current → Target</p>
+                  <p className="text-2xl font-bold mt-1" style={{ color: '#1A2118' }}>
+                    {g.currentKg || 0} <span style={{ color: '#9BAEA5', fontSize: '16px' }}>→</span> {g.targetKg}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold" style={{ color: '#2D6A4F' }}>−{g.reduction}%</p>
+                  <p className="text-xs" style={{ color: '#9BAEA5' }}>reduction</p>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full h-2 rounded-full" style={{ background: '#E5EAE8' }}>
+                <div className="h-full rounded-full transition-all" style={{
+                  background: '#2D6A4F',
+                  width: `${Math.max(10, 100 * (g.targetKg / (g.currentKg || 1)))}%`,
+                }} />
+              </div>
+            </div>
+
+            {/* Strategy */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#9BAEA5' }}>Primary strategy</p>
+              <p className="text-sm leading-relaxed" style={{ color: '#5A7A6D' }}>{g.strategy}</p>
+              {g.rationale && <p className="text-xs mt-3" style={{ color: '#7A9E8E' }}>💡 {g.rationale}</p>}
+            </div>
+          </Card>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════
+   TAB 6 — AI REPORT (admin only)
+════════════════════════════════════════════════ */
+function ReportTab() {
+  const [report,  setReport]  = useState('');
+  const [loading, setLoading] = useState(false);
+  const [stats,   setStats]   = useState(null);
+
+  const generateNow = async () => {
+    setLoading(true);
+    try {
+      const { data: res } = await insightsApi.generateReport();
+      setReport(res.data.report);
+      setStats(res.data.stats);
+      toast.success('Report generated!');
+    } catch (e) {
+      toast.error(e?.response?.data?.message ?? 'Report generation failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadReport = () => {
+    const blob = new Blob([report], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `carbonx-report-${new Date().toISOString().slice(0,10)}.md`;
+    a.click();
+  };
+
+  return (
+    <div className="space-y-5">
+      {!report ? (
+        <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+          <FileText className="h-12 w-12 mb-4" style={{ color: '#C0DDD0' }} />
+          <h3 className="text-base font-semibold mb-2" style={{ color: '#1A2118' }}>Generate Organization Report</h3>
+          <p className="text-sm max-w-md mb-6" style={{ color: '#9BAEA5' }}>
+            Create a professional sustainability report for your organization with AI-powered insights, key findings, and recommendations.
+          </p>
+          <button onClick={generateNow} disabled={loading}
+            className="flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-bold text-white disabled:opacity-50"
+            style={{ background: '#2D6A4F' }}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            {loading ? 'Generating...' : 'Generate Report'}
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Stats cards */}
+          {stats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { l: 'Total Emissions', v: `${stats.totalKg} kg`, icon: '📊' },
+                { l: 'Employees', v: stats.employees, icon: '👥' },
+                { l: 'Top Category', v: stats.topCategory, icon: '📈' },
+                { l: 'Trend', v: stats.trend + '%', icon: '📉' },
+              ].map(s => (
+                <Card key={s.l} className="p-3 text-center">
+                  <p className="text-lg mb-1">{s.icon}</p>
+                  <p className="text-sm font-bold" style={{ color: '#1A2118' }}>{s.v}</p>
+                  <p className="text-xs" style={{ color: '#9BAEA5' }}>{s.l}</p>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Report content */}
+          <Card className="p-6">
+            <div className="prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{
+                __html: report
+                  .split('\n').map(l => {
+                    if (l.startsWith('# ')) return `<h2 style="color:#1A2118;font-size:24px;font-weight:bold;margin:16px 0 8px">${l.slice(2)}</h2>`;
+                    if (l.startsWith('## ')) return `<h3 style="color:#1A2118;font-size:18px;font-weight:bold;margin:12px 0 6px">${l.slice(3)}</h3>`;
+                    if (l.startsWith('- ')) return `<li style="color:#5A7A6D;margin:4px 0 4px 20px">${l.slice(2)}</li>`;
+                    if (l === '') return '<br />';
+                    return `<p style="color:#5A7A6D;margin:8px 0;line-height:1.6">${l}</p>`;
+                  }).join('')
+              }}
+            />
+          </Card>
+
+          {/* Actions */}
+          <div className="flex gap-3 flex-wrap">
+            <button onClick={downloadReport}
+              className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold"
+              style={{ background: '#EAF4EE', color: '#2D6A4F', border: '1px solid #C0DDD0' }}>
+              <Download className="h-4 w-4" /> Download
+            </button>
+            <button onClick={generateNow} disabled={loading}
+              className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold"
+              style={{ background: '#F4F6F4', color: '#9BAEA5', border: '1px solid #E5EAE8' }}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Regenerate
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════
    PAGE SHELL
 ════════════════════════════════════════════════ */
 export default function InsightsPage() {
@@ -704,8 +919,12 @@ export default function InsightsPage() {
   const TABS = [
     { id: 'recommendations', label: 'Recommendations', icon: Sparkles },
     { id: 'challenges',      label: 'Challenges',      icon: Target    },
+    { id: 'goals',           label: 'My Goals',        icon: Lightbulb  },
     { id: 'forecast',        label: 'AI Forecast',     icon: BrainCircuit },
-    ...(isAdmin ? [{ id: 'offsets', label: 'Offset Projects', icon: Leaf }] : []),
+    ...(isAdmin ? [
+      { id: 'offsets', label: 'Offset Projects', icon: Leaf },
+      { id: 'report',  label: 'Org Report',      icon: FileText },
+    ] : []),
   ];
 
   const [tab, setTab] = useState('recommendations');
@@ -744,8 +963,10 @@ export default function InsightsPage() {
           exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.2 }}>
           {tab === 'recommendations' && <RecommendationsTab />}
           {tab === 'challenges'      && <ChallengesTab />}
+          {tab === 'goals'           && <GoalsTab />}
           {tab === 'forecast'        && <ForecastTab />}
           {tab === 'offsets'         && isAdmin && <OffsetTab />}
+          {tab === 'report'          && isAdmin && <ReportTab />}
         </motion.div>
       </AnimatePresence>
     </div>

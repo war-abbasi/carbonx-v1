@@ -264,8 +264,331 @@ async function getOffsetProjects(req, res) {
   return successResponse(res, OFFSET_PROJECTS, 'Offset projects fetched.');
 }
 
+/* ════════════════════════════════════════════════
+   AI REPORT GENERATOR (admin only)
+════════════════════════════════════════════════ */
+async function generateReport(req, res, next) {
+  try {
+    if (req.user.role !== 'ADMIN') return errorResponse(res, 'Admin only.', 403);
+
+    // Fetch org-wide data
+    const allEntries = await prisma.carbonEntry.findMany({
+      select: { valueKg: true, category: true, subCategory: true, userId: true, entryDate: true },
+    });
+
+    if (!allEntries.length) {
+      return successResponse(res, {
+        report: '# Sustainability Report\n\nNo carbon data logged yet. Start tracking to generate insights.',
+        generated: false,
+      });
+    }
+
+    // Aggregate by user + category
+    const userMap = {};
+    const catMap = {};
+    const monthMap = {};
+    const subMap = {};
+
+    allEntries.forEach(e => {
+      userMap[e.userId] = (userMap[e.userId] ?? 0) + e.valueKg;
+      catMap[e.category] = (catMap[e.category] ?? 0) + e.valueKg;
+      subMap[e.subCategory] = (subMap[e.subCategory] ?? 0) + e.valueKg;
+
+      const d = new Date(e.entryDate);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      monthMap[key] = (monthMap[key] ?? 0) + e.valueKg;
+    });
+
+    const totalKg = allEntries.reduce((s, e) => s + e.valueKg, 0);
+    const avgPerUser = totalKg / Object.keys(userMap).length;
+    const topEmitter = Object.entries(userMap).sort(([,a], [,b]) => b - a)[0];
+    const topCategory = Object.entries(catMap).sort(([,a], [,b]) => b - a)[0];
+    const sortedMonths = Object.entries(monthMap).sort(([a], [b]) => a.localeCompare(b));
+    const monthlyTrend = sortedMonths.length >= 2
+      ? ((sortedMonths[sortedMonths.length - 1][1] - sortedMonths[0][1]) / sortedMonths[0][1] * 100).toFixed(1)
+      : 'N/A';
+
+    const topUsers = Object.entries(userMap)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([uId, kg], i) => `${i+1}. User #${uId}: ${kg.toFixed(1)} kg`);
+
+    const dataStr = `
+Organization Carbon Footprint Report
+
+Total Emissions: ${totalKg.toFixed(1)} kg CO₂e
+Employees: ${Object.keys(userMap).length}
+Average per Employee: ${avgPerUser.toFixed(1)} kg CO₂e
+
+Top Emission Sources (kg):
+- ${topCategory[0]}: ${topCategory[1].toFixed(1)} kg (${(topCategory[1]/totalKg*100).toFixed(0)}%)
+- Top emitter: User #${topEmitter[0]} with ${topEmitter[1].toFixed(1)} kg
+
+Top 5 Employees by Emissions:
+${topUsers.join('\n')}
+
+Monthly Trend: ${monthlyTrend}% over ${sortedMonths.length} months
+Recent Month (latest): ${sortedMonths[sortedMonths.length - 1]?.[1]?.toFixed(1) ?? 'N/A'} kg
+
+Breakdown by Category:
+${Object.entries(catMap)
+  .sort(([,a], [,b]) => b - a)
+  .map(([cat, kg]) => `- ${cat}: ${kg.toFixed(1)} kg (${(kg/totalKg*100).toFixed(1)}%)`)
+  .join('\n')}
+    `.trim();
+
+    const prompt = `You are a corporate sustainability consultant. Based on this organization's carbon data, write a professional 1-page sustainability report. Include:
+
+${dataStr}
+
+Generate a report with:
+1. Executive Summary (2-3 sentences on total emissions, trend, and key insight)
+2. Key Findings (3-4 bullet points: top sources, biggest contributor, opportunity area)
+3. Recommendations (3-4 specific, actionable steps the organization can take)
+4. Commitment Proposal (suggest a 6-month or 12-month emission reduction goal and how to achieve it)
+
+Format in markdown. Be specific with numbers and percentages from the data provided.`;
+
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const completion = await groq.chat.completions.create({
+      model:       'llama-3.3-70b-versatile',
+      messages:    [{ role: 'user', content: prompt }],
+      temperature: 0.8,
+      max_tokens:  1200,
+    });
+
+    const report = completion.choices[0]?.message?.content || '# Report Generation Failed\n\nCould not generate report. Try again.';
+
+    return successResponse(res, {
+      report,
+      generated: true,
+      stats: {
+        totalKg: parseFloat(totalKg.toFixed(1)),
+        employees: Object.keys(userMap).length,
+        topCategory: topCategory[0],
+        trend: monthlyTrend,
+      },
+    }, 'Report generated successfully.');
+  } catch (err) { next(err); }
+}
+
+/* ════════════════════════════════════════════════
+   AI GOAL SETTING
+════════════════════════════════════════════════ */
+async function getSuggestedGoals(req, res, next) {
+  try {
+    const isAdmin = req.user.role === 'ADMIN';
+    const userWhere = isAdmin ? {} : { userId: req.user.id };
+
+    // Get last 60 days of data
+    const since = new Date();
+    since.setDate(since.getDate() - 60);
+
+    const entries = await prisma.carbonEntry.findMany({
+      where:  { ...userWhere, entryDate: { gte: since } },
+      select: { valueKg: true, entryDate: true },
+      orderBy: { entryDate: 'asc' },
+    });
+
+    if (entries.length < 5) {
+      return successResponse(res, {
+        goals: [],
+        message: 'Log at least 5 entries over a few weeks to get personalized goals.',
+      });
+    }
+
+    // Calculate current trajectory
+    const monthMap = {};
+    entries.forEach(e => {
+      const d = new Date(e.entryDate);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      monthMap[key] = (monthMap[key] ?? 0) + e.valueKg;
+    });
+
+    const sortedMonths = Object.entries(monthMap).sort(([a], [b]) => a.localeCompare(b));
+    const currentMonth = sortedMonths[sortedMonths.length - 1];
+    const prevMonth = sortedMonths[sortedMonths.length - 2];
+    const currentKg = currentMonth ? currentMonth[1] : 0;
+    const prevKg = prevMonth ? prevMonth[1] : currentKg;
+    const monthlyTrend = ((currentKg - prevKg) / (prevKg || 1) * 100).toFixed(1);
+
+    const avgMonthly = sortedMonths.reduce((s, [,kg]) => s + kg, 0) / sortedMonths.length;
+    const dailyAvg = currentKg / 30;
+
+    const prompt = `You are a climate coach. Given a user's current carbon footprint, suggest 3 realistic reduction goals for 3 months, 6 months, and 12 months. The goals should be achievable, motivating, and specific.
+
+Current Emissions:
+- Current month: ${currentKg.toFixed(1)} kg CO₂e
+- Monthly trend: ${monthlyTrend}% (${monthlyTrend > 0 ? 'increasing' : 'decreasing'})
+- Average monthly: ${avgMonthly.toFixed(1)} kg
+- Daily average: ${dailyAvg.toFixed(1)} kg
+
+Create 3 reduction goals with:
+1. Period (3 months, 6 months, 12 months)
+2. Target kg CO₂e (specific number, realistic reduction of 10-35% per goal)
+3. Primary strategy (e.g., reduce commute, switch diet, lower energy)
+4. Confidence level (Low/Medium/High — based on how achievable it is)
+
+Return ONLY a valid JSON array with 3 objects:
+{ "period": "3 months", "targetKg": NUMBER, "strategy": "...", "confidence": "High", "rationale": "..." }`;
+
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const completion = await groq.chat.completions.create({
+      model:       'llama-3.3-70b-versatile',
+      messages:    [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens:  800,
+    });
+
+    let goals = [];
+    try {
+      const aiResponse = completion.choices[0]?.message?.content || '[]';
+      goals = JSON.parse(aiResponse);
+      if (!Array.isArray(goals)) goals = [];
+      goals = goals.slice(0, 3);
+    } catch (e) {
+      console.warn('Goal parsing failed, returning basic goals');
+      const r = 0.15; // 15% reduction per period
+      goals = [
+        { period: '3 months', targetKg: Math.max(0, avgMonthly * (1 - r)), strategy: 'Start with one main source (commute or diet)', confidence: 'High' },
+        { period: '6 months', targetKg: Math.max(0, avgMonthly * (1 - r * 2)), strategy: 'Combine 2-3 action areas for compounding impact', confidence: 'Medium' },
+        { period: '12 months', targetKg: Math.max(0, avgMonthly * (1 - r * 3)), strategy: 'Establish sustainable habits across all categories', confidence: 'Medium' },
+      ];
+    }
+
+    // Add context
+    goals = goals.map(g => ({
+      ...g,
+      targetKg: parseFloat(g.targetKg.toFixed(1)),
+      reduction: parseFloat(((avgMonthly - g.targetKg) / avgMonthly * 100).toFixed(1)),
+      currentKg: parseFloat(avgMonthly.toFixed(1)),
+    }));
+
+    return successResponse(res, {
+      goals,
+      currentMonthly: parseFloat(currentKg.toFixed(1)),
+      monthlyTrend: parseFloat(monthlyTrend),
+      message: 'AI-generated reduction goals based on your trajectory.',
+    });
+  } catch (err) { next(err); }
+}
+
+/* ════════════════════════════════════════════════
+   AI CHALLENGE SUGGESTER
+════════════════════════════════════════════════ */
+async function suggestChallenge(req, res, next) {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+
+    const entries = await prisma.carbonEntry.findMany({
+      where:  { userId: req.user.id, entryDate: { gte: since } },
+      select: { valueKg: true, category: true, subCategory: true },
+    });
+
+    if (!entries.length) {
+      return successResponse(res, {
+        suggestion: null,
+        message: 'Log at least one entry to get a challenge suggestion.',
+      });
+    }
+
+    // Find top emission source
+    const subMap = {};
+    entries.forEach(e => {
+      subMap[e.subCategory] = (subMap[e.subCategory] ?? 0) + e.valueKg;
+    });
+    const topSource = Object.entries(subMap).sort(([,a], [,b]) => b - a)[0];
+
+    // Get user's completed challenges
+    const completed = await prisma.userChallenge.findMany({
+      where: { userId: req.user.id, status: 'completed' },
+      select: { challengeId: true },
+    });
+    const completedIds = new Set(completed.map(c => c.challengeId));
+
+    // Map sub-category to challenge category
+    const CATEGORY_MAP = {
+      car_petrol: 'commute', car_diesel: 'commute', car_electric: 'commute', motorbike: 'commute', bus: 'commute', train: 'commute', walking: 'commute',
+      electricity: 'energy', natural_gas: 'energy', lpg: 'energy', diesel_gen: 'energy',
+      flight_short: 'travel', flight_long: 'travel', car_rental: 'travel', taxi: 'travel',
+      beef: 'food', chicken: 'food', fish: 'food', vegetarian: 'food', vegan: 'food',
+    };
+    const topCategory = CATEGORY_MAP[topSource[0]] || 'general';
+
+    // Filter available challenges that match or complement top source
+    const matching = CHALLENGES.filter(c =>
+      (c.category === topCategory || c.category === 'general') && !completedIds.has(c.id)
+    );
+    const available = CHALLENGES.filter(c => !completedIds.has(c.id));
+
+    const topSourceStr = topSource[0] || 'general';
+    const dataStr = `
+User's top emission source (last 30 days): ${topSourceStr} = ${topSource[1].toFixed(1)} kg
+Total emissions: ${entries.reduce((s, e) => s + e.valueKg, 0).toFixed(1)} kg
+
+Available challenges (user has not completed):
+${available.slice(0, 10).map(c => `- ${c.id}: ${c.title} (${c.category}, difficulty: ${c.difficulty}, saves ~${c.targetKg} kg)`).join('\n')}
+
+Matching category challenges:
+${matching.slice(0, 5).map(c => `- ${c.id}: ${c.title}`).join('\n')}`;
+
+    const prompt = `You are a carbon reduction coach. Given the user's top emission source and available challenges, suggest the SINGLE MOST IMPACTFUL challenge they should do next.
+
+${dataStr}
+
+Consider:
+1. Does the challenge directly address their top source?
+2. Is it realistic for them (difficulty matching)?
+3. Will it save the most CO₂e?
+
+Return ONLY a JSON object:
+{ "challengeId": "STRING", "reasoning": "Why this challenge will have the most impact for this user" }`;
+
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const completion = await groq.chat.completions.create({
+      model:       'llama-3.3-70b-versatile',
+      messages:    [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens:  400,
+    });
+
+    let suggestion = null;
+    try {
+      const aiResponse = completion.choices[0]?.message?.content || '{}';
+      const parsed = JSON.parse(aiResponse);
+      const chal = CHALLENGES.find(c => c.id === parsed.challengeId);
+      if (chal) {
+        suggestion = {
+          challengeId: parsed.challengeId,
+          challenge: chal,
+          reasoning: parsed.reasoning || 'Recommended to address your top emission source.',
+        };
+      }
+    } catch (e) {
+      // Fallback: pick highest-impact matching challenge
+      if (matching.length > 0) {
+        const best = matching.sort((a, b) => b.targetKg - a.targetKg)[0];
+        suggestion = {
+          challengeId: best.id,
+          challenge: best,
+          reasoning: `Directly targets your top source (${topSourceStr}). Expected savings: ${best.targetKg} kg CO₂e.`,
+        };
+      }
+    }
+
+    return successResponse(res, {
+      suggestion,
+      topSource: topSourceStr,
+      topSourceKg: parseFloat(topSource[1].toFixed(1)),
+      message: suggestion ? 'Challenge suggested based on your emissions profile.' : 'No suggestion available.',
+    });
+  } catch (err) { next(err); }
+}
+
 module.exports = {
   getRecommendations,
   listChallenges, joinChallenge, completeChallenge, leaveChallenge,
   getOffsetProjects,
+  generateReport, getSuggestedGoals, suggestChallenge,
 };
