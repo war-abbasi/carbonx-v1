@@ -11,7 +11,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api';
 function makeGreeting() {
   return {
     id: 'init', role: 'assistant', done: true,
-    text: "Hello! I'm **CarbonX AI**, your carbon management assistant.\n\nI have access to your real emission data and can help you:\n• Understand your biggest emission sources\n• Explain GHG Protocol and carbon accounting\n• Suggest specific reduction strategies\n• Analyse your sustainability progress\n\nWhat would you like to know?",
+    text: "Hello! I'm **CarbonX AI**, your carbon management assistant.\n\nI have access to your real emission data and can help you:\n• Understand your biggest emission sources\n• Explain GHG Protocol and carbon accounting\n• Suggest specific reduction strategies\n• Analyse your sustainability progress\n\nAap **Roman Urdu** mein bhi pooch sakte hain — main samajhta hoon! 🌿\n\nWhat would you like to know?",
     time: now(),
   };
 }
@@ -23,11 +23,11 @@ function now() {
 /* ── Quick prompts ───────────────────────────── */
 const QUICK_PROMPTS = [
   "What's my biggest emission source?",
-  "How can I reduce my Scope 1 emissions?",
+  "Mera footprint kam karne ke liye kya karun?",
   "Explain Scope 3 emissions",
-  "What is net-zero and how do I reach it?",
+  "Aaj ke liye 3 tips do carbon reduce karne ki",
   "Compare my emission categories",
-  "Give me a 30-day reduction plan",
+  "What is net-zero?",
 ];
 
 /* ── Markdown renderer ───────────────────────── */
@@ -193,7 +193,7 @@ export default function ChatPage() {
           <p className="text-sm font-semibold" style={{ color:'#1A2118' }}>CarbonX AI</p>
           <p className="text-xs flex items-center gap-1.5" style={{ color: apiOk ? '#2D6A4F' : '#C4952A' }}>
             <span className={`h-1.5 w-1.5 rounded-full ${apiOk ? 'bg-green-400 animate-pulse' : 'bg-amber-400'}`} />
-            {apiOk ? 'Powered by Claude claude-haiku-4-5 · aware of your data' : 'API key not configured'}
+            {apiOk ? 'Powered by LLaMA 3.3 · Roman Urdu · aware of your data' : 'GROQ_API_KEY not configured'}
           </p>
         </div>
         <button onClick={reset}
