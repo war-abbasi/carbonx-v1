@@ -592,6 +592,7 @@ Return ONLY a JSON object:
 ════════════════════════════════════════════════ */
 
 const mlService = require('../api/mlServiceClient');
+const logger    = require('../utils/logger');
 
 /**
  * Generate carbon emissions forecast
