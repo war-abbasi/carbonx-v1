@@ -65,7 +65,7 @@ async function leaderboard(req, res, next) {
 /* GET /api/carbon/analytics?period=year|6months|3months */
 async function analytics(req, res, next) {
   try {
-    const period  = ['year', '6months', '3months'].includes(req.query.period)
+    const period  = ['year', '6months', '30days', '7days'].includes(req.query.period)
       ? req.query.period : 'year';
     const isAdmin = req.user.role === 'ADMIN';
     const data    = await getAnalytics(req.user.id, isAdmin, period);
