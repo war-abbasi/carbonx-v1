@@ -76,9 +76,12 @@ function ForecastChart({ historical, forecast: fc }) {
   );
 }
 
+/* accuracy (%) from out-of-sample MAPE — intuitive & robust on short horizons */
+const accuracyOf = (m) => (m && m.mape != null ? Math.max(0, Math.min(100, Math.round(100 - m.mape))) : 0);
+
 /* ─── Accuracy donut gauge ─── */
-function AccuracyGauge({ value, color }) {
-  const pct = Math.max(0, Math.min(100, Math.round((value || 0) * 100)));
+function AccuracyGauge({ pct = 0, color }) {
+  pct = Math.max(0, Math.min(100, Math.round(pct)));
   const R = 34, C = 2 * Math.PI * R;
   const off = C - (pct / 100) * C;
   return (
@@ -91,7 +94,7 @@ function AccuracyGauge({ value, color }) {
       </svg>
       <div className="absolute text-center">
         <p className="text-xl font-bold leading-none" style={{ color: '#1A2118' }}>{pct}%</p>
-        <p className="text-[9px] font-medium" style={{ color: '#9BAEA5' }}>fit (R²)</p>
+        <p className="text-[9px] font-medium" style={{ color: '#9BAEA5' }}>accuracy</p>
       </div>
     </div>
   );
@@ -253,7 +256,7 @@ export default function CarboncastXPage() {
                 <p className="text-sm font-bold mb-1" style={{ color: '#1A2118' }}>AI Insight</p>
                 <p className="text-sm leading-relaxed" style={{ color: '#3D5247' }}>
                   Based on <strong>{chartHist.length} months</strong> of data, <strong>{bestMeta.name}</strong> was
-                  the most accurate model ({Math.round((bestModel.metrics?.r2 || 0) * 100)}% fit). Over the next{' '}
+                  the most accurate model ({accuracyOf(bestModel.metrics)}% accuracy). Over the next{' '}
                   <strong>{chartFc.length} months</strong> your emissions are projected to{' '}
                   {rising ? <span style={{ color: '#DC2626', fontWeight: 600 }}>rise ~{Math.abs(overallChg)}% 📈</span>
                     : falling ? <span style={{ color: '#2D6A4F', fontWeight: 600 }}>fall ~{Math.abs(overallChg)}% 📉</span>
@@ -314,11 +317,12 @@ export default function CarboncastXPage() {
                     : 'In-sample fit (dataset too short to backtest)'}
                 </p>
                 <div className="flex items-center gap-4">
-                  <AccuracyGauge value={bestModel.metrics?.r2} color={bestMeta.color} />
+                  <AccuracyGauge pct={accuracyOf(bestModel.metrics)} color={bestMeta.color} />
                   <div className="text-xs space-y-1.5">
                     <div className="flex justify-between gap-4"><span style={{color:'#9BAEA5'}}>RMSE</span><span className="font-semibold" style={{color:'#1A2118'}}>{Number(bestModel.metrics?.rmse).toFixed(1)}</span></div>
                     <div className="flex justify-between gap-4"><span style={{color:'#9BAEA5'}}>MAE</span><span className="font-semibold" style={{color:'#1A2118'}}>{Number(bestModel.metrics?.mae).toFixed(1)}</span></div>
                     <div className="flex justify-between gap-4"><span style={{color:'#9BAEA5'}}>MAPE</span><span className="font-semibold" style={{color:'#1A2118'}}>{Number(bestModel.metrics?.mape).toFixed(1)}%</span></div>
+                    <div className="flex justify-between gap-4"><span style={{color:'#9BAEA5'}}>R²</span><span className="font-semibold" style={{color:'#1A2118'}}>{Number(bestModel.metrics?.r2).toFixed(2)}</span></div>
                   </div>
                 </div>
 
@@ -359,7 +363,7 @@ export default function CarboncastXPage() {
                 const meta = MODEL_META[key] || { name: key, color: '#7A9E8E', blurb: '' };
                 const ok = mdl.status === 'success' && mdl.metrics;
                 const isBest = key === bestKey;
-                const r2 = ok ? Math.round(mdl.metrics.r2 * 100) : 0;
+                const acc = ok ? accuracyOf(mdl.metrics) : 0;
                 return (
                   <Card key={key} className="p-4" style={isBest ? { border: `2px solid ${meta.color}`, background: `${meta.color}08` } : {}}>
                     <div className="flex items-center justify-between mb-2">
@@ -374,8 +378,8 @@ export default function CarboncastXPage() {
                       <>
                         <div className="flex items-end justify-between mb-2">
                           <div>
-                            <p className="text-2xl font-bold" style={{ color: meta.color }}>{r2}%</p>
-                            <p className="text-[10px]" style={{ color: '#9BAEA5' }}>accuracy (R²)</p>
+                            <p className="text-2xl font-bold" style={{ color: meta.color }}>{acc}%</p>
+                            <p className="text-[10px]" style={{ color: '#9BAEA5' }}>accuracy (100−MAPE)</p>
                           </div>
                           <div className="text-right text-[11px] space-y-0.5">
                             <p style={{ color: '#5A7A6D' }}>RMSE <span className="font-semibold" style={{ color:'#1A2118' }}>{Number(mdl.metrics.rmse).toFixed(1)}</span></p>
@@ -383,7 +387,7 @@ export default function CarboncastXPage() {
                           </div>
                         </div>
                         <div className="h-1.5 rounded-full" style={{ background: '#F0EDE4' }}>
-                          <div className="h-full rounded-full" style={{ width: `${r2}%`, background: meta.color }} />
+                          <div className="h-full rounded-full" style={{ width: `${acc}%`, background: meta.color }} />
                         </div>
                       </>
                     ) : (
