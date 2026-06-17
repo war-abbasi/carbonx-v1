@@ -304,10 +304,15 @@ export default function CarboncastXPage() {
             {/* Accuracy + drivers */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
               <Card className="p-6 h-full flex flex-col">
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-1">
                   <Gauge className="h-4 w-4" style={{ color: bestMeta.color }} />
                   <h2 className="text-sm font-semibold" style={{ color:'#1A2118' }}>Model accuracy</h2>
                 </div>
+                <p className="text-[11px] mb-3" style={{ color: '#9BAEA5' }}>
+                  {bestModel.validation === 'holdout'
+                    ? '✓ Validated out-of-sample (holdout backtest)'
+                    : 'In-sample fit (dataset too short to backtest)'}
+                </p>
                 <div className="flex items-center gap-4">
                   <AccuracyGauge value={bestModel.metrics?.r2} color={bestMeta.color} />
                   <div className="text-xs space-y-1.5">

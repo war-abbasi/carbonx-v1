@@ -112,6 +112,21 @@ class ModelComparison:
                 logger.error(f"Holt-Winters training failed: {str(e)}")
                 results['models']['holt_winters'] = {'status': 'failed', 'error': str(e)}
 
+            # ── Honest accuracy: holdout backtest ──
+            # In-sample metrics let flexible models (Prophet/XGBoost) overfit to
+            # a perfect R²=1. Re-score each model out-of-sample on a hidden tail
+            # so the comparison and displayed accuracy are trustworthy.
+            try:
+                holdout = self._holdout_metrics(historical_data, employee_counts, start_date)
+                for name, m in holdout.items():
+                    if name in results['models'] and results['models'][name].get('status') == 'success':
+                        results['models'][name]['metrics'] = m
+                        results['models'][name]['validation'] = 'holdout'
+                if holdout:
+                    logger.info(f"Holdout backtest applied to {list(holdout.keys())}")
+            except Exception as e:
+                logger.warning(f"Holdout backtest skipped: {str(e)}")
+
             # Select best model
             best_model, best_score = self._select_best_model(results)
             results['best_model'] = best_model
@@ -126,6 +141,58 @@ class ModelComparison:
         except Exception as e:
             logger.error(f"Model comparison error: {str(e)}")
             raise
+
+    @staticmethod
+    def _score(actual: List[float], pred: List[float]) -> Dict:
+        """Out-of-sample metrics for actual vs predicted arrays."""
+        a = np.asarray(actual, dtype=float)
+        p = np.asarray(pred, dtype=float)[:len(a)]
+        resid = a - p
+        rmse = float(np.sqrt(np.mean(resid ** 2)))
+        mae = float(np.mean(np.abs(resid)))
+        mape = float(np.mean(np.abs(resid / (np.abs(a) + 1e-6))) * 100)
+        ss_res = float(np.sum(resid ** 2))
+        ss_tot = float(np.sum((a - np.mean(a)) ** 2))
+        r2 = 1 - (ss_res / ss_tot) if ss_tot > 1e-9 else 0.0
+        r2 = max(0.0, min(1.0, r2))
+        return {'rmse': round(rmse, 4), 'mae': round(mae, 4),
+                'mape': round(mape, 2), 'r2': round(r2, 4)}
+
+    def _holdout_metrics(self, data: List[float], employee_counts: Optional[List],
+                         start_date: str) -> Dict:
+        """Train each model on data[:-h], predict the hidden tail, score it."""
+        n = len(data)
+        if n < 8:
+            return {}                      # too short for a meaningful holdout
+        h = min(6, max(2, n // 5))
+        train, actual = data[:-h], data[-h:]
+        emp_train = employee_counts[:len(train)] if employee_counts else None
+        out = {}
+
+        # local imports avoid any chance of shared-state bleed with the full-fit models
+        from .prophet_model import ProphetForecaster
+        from .xgboost_model import XGBoostForecaster
+        from .holt_winters_model import HoltWintersForecaster
+
+        try:
+            m = ProphetForecaster(); m.train(train, start_date)
+            preds = [f['predicted_emissions'] for f in m.forecast_future(h)]
+            out['prophet'] = self._score(actual, preds)
+        except Exception as e:
+            logger.warning(f"Prophet holdout failed: {e}")
+        try:
+            m = XGBoostForecaster(); m.train(train, emp_train)
+            preds = [f['predicted_emissions'] for f in m.forecast_future(train, h, emp_train)]
+            out['xgboost'] = self._score(actual, preds)
+        except Exception as e:
+            logger.warning(f"XGBoost holdout failed: {e}")
+        try:
+            m = HoltWintersForecaster(); m.train(train, start_date)
+            preds = [f['predicted_emissions'] for f in m.forecast_future(h)]
+            out['holt_winters'] = self._score(actual, preds)
+        except Exception as e:
+            logger.warning(f"Holt-Winters holdout failed: {e}")
+        return out
 
     def _select_best_model(self, results: Dict) -> tuple:
         """
