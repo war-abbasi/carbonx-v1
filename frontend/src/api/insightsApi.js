@@ -15,7 +15,8 @@ export const insightsApi = {
   suggestChallenge:    ()   => api.post('/insights/challenge-suggestion'),
 
   // ML Forecasting (NEW)
-  getForecast:         (months = 12) => api.get(`/insights/forecast?months=${months}`),
+  getForecast:         (months = 12, refresh = false) =>
+                         api.get(`/insights/forecast?months=${months}${refresh ? '&refresh=true' : ''}`),
   compareModels:       () => api.get('/insights/compare-models'),
   checkMLServiceHealth: () => api.get('/insights/ml-health'),
 };

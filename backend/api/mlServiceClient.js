@@ -40,31 +40,6 @@ class MLServiceClient {
   }
 
   /**
-   * Calculate emissions from activities
-   */
-  async calculateEmissions(organizationId, activities, month) {
-    try {
-      const payload = {
-        organization_id: organizationId,
-        month: month, // Format: YYYY-MM
-        activities: activities // {electricity_kwh, diesel_liters, travel_km, waste_kg}
-      };
-
-      const response = await axios.post(
-        `${ML_SERVICE_URL}/api/v1/emissions/calculate`,
-        payload,
-        { timeout: ML_SERVICE_TIMEOUT }
-      );
-
-      return response.data;
-
-    } catch (error) {
-      logger.error(`[ML Service] Emissions calculation error: ${error.message}`);
-      throw error;
-    }
-  }
-
-  /**
    * Compare all 3 models
    */
   async compareModels(organizationId, historicalData, options = {}) {

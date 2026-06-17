@@ -17,14 +17,13 @@ logger = logging.getLogger(__name__)
 class XGBoostForecaster:
     """XGBoost-based forecasting model"""
 
-    def __init__(self, n_estimators: int = 100, max_depth: int = 5, learning_rate: float = 0.1):
+    def __init__(self, n_estimators: int = 300, max_depth: int = 3, learning_rate: float = 0.05):
         """
-        Initialize XGBoost forecaster
+        Initialize XGBoost forecaster.
 
-        Args:
-            n_estimators: Number of boosting rounds
-            max_depth: Maximum tree depth
-            learning_rate: Learning rate (eta)
+        Defaults are tuned for short monthly series (≈12–60 points): shallow
+        trees + many low-rate rounds + strong regularisation to avoid the
+        gross over-fitting that depth-5 trees produce on tiny datasets.
         """
         self.n_estimators = n_estimators
         self.max_depth = max_depth
@@ -110,11 +109,16 @@ class XGBoostForecaster:
             # Engineer features
             X, y = self.engineer_features(historical_data, employee_counts)
 
-            # Train XGBoost
+            # Train XGBoost with regularisation suited to small series
             self.model = xgb.XGBRegressor(
                 n_estimators=self.n_estimators,
                 max_depth=self.max_depth,
                 learning_rate=self.learning_rate,
+                subsample=0.85,
+                colsample_bytree=0.85,
+                min_child_weight=2,
+                reg_lambda=1.5,
+                reg_alpha=0.1,
                 random_state=42,
                 verbose=0
             )

@@ -5,6 +5,7 @@ const adminRoutes  = require('./adminRoutes');
 const chatRoutes          = require('./chatRoutes');
 const conversationRoutes  = require('./conversationRoutes');
 const insightsRoutes      = require('./insightsRoutes');
+const goalsRoutes         = require('./goalsRoutes');
 
 const router = Router();
 
@@ -14,6 +15,7 @@ router.use('/admin',  adminRoutes);
 router.use('/chat',          chatRoutes);
 router.use('/conversations', conversationRoutes);
 router.use('/insights',      insightsRoutes);
+router.use('/goals',         goalsRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

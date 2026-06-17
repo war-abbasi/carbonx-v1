@@ -602,8 +602,9 @@ async function getForecast(req, res, next) {
   try {
     const userId = req.user.id;
     const months = Math.min(parseInt(req.query.months) || 12, 24); // Max 24 months
+    const forceRefresh = req.query.refresh === 'true';
 
-    logger.info(`[Forecast] Generating forecast for user ${userId}`);
+    logger.info(`[Forecast] Forecast request for user ${userId} (refresh=${forceRefresh})`);
 
     // Get user's carbon entries
     const entries = await prisma.carbonEntry.findMany({
@@ -626,38 +627,65 @@ async function getForecast(req, res, next) {
     const monthlyData = {};
     entries.forEach(entry => {
       const month = entry.entryDate.toISOString().slice(0, 7); // YYYY-MM
-      if (!monthlyData[month]) {
-        monthlyData[month] = 0;
-      }
+      if (!monthlyData[month]) monthlyData[month] = 0;
       monthlyData[month] += entry.valueKg;
     });
 
-    const sortedMonths = Object.keys(monthlyData).sort();
+    const sortedMonths   = Object.keys(monthlyData).sort();
     const historicalData = sortedMonths.map(m => monthlyData[m]);
+    const historical     = sortedMonths.map(m => ({ month: m, value: Math.round(monthlyData[m]) }));
 
-    // NOTE: the User model has no organizationId/employee fields, so we don't
-    // pass employee counts. The ML service handles an empty list gracefully.
+    // ── Cache: reuse the most recent stored forecast when nothing material
+    //    changed (same horizon, same #months of data) and it is < 24h old.
+    //    This avoids retraining all 3 models on every page view.
+    if (!forceRefresh) {
+      const cached = await prisma.forecast.findFirst({
+        where: { userId, monthsAhead: months, dataPoints: historicalData.length },
+        orderBy: { createdAt: 'desc' }
+      }).catch(() => null);
 
-    // Call ML service
+      const DAY = 24 * 60 * 60 * 1000;
+      if (cached && (Date.now() - new Date(cached.createdAt).getTime()) < DAY) {
+        logger.info(`[Forecast] Serving cached forecast #${cached.id} for user ${userId}`);
+        return successResponse(res, {
+          success: true,
+          forecast: cached.payload,
+          historical: cached.historical,
+          dataPoints: cached.dataPoints,
+          months,
+          cached: true,
+          generatedAt: cached.createdAt,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+
+    // Call ML service (User has no org/employee fields → empty employee list)
     const forecast = await mlService.generateForecast(
       `org_${userId}`,
       historicalData,
-      {
-        months: months,
-        employeeCounts: [],
-        startDate: sortedMonths[0]
-      }
+      { months, employeeCounts: [], startDate: sortedMonths[0] }
     );
 
-    // NOTE: forecast audit-trail persistence is intentionally disabled — there is
-    // no `Forecast` model in the Prisma schema yet. (Re-add once the table exists.)
+    // Persist for history + caching (best-effort; never block the response)
+    prisma.forecast.create({
+      data: {
+        userId,
+        bestModel:   forecast.best_model || 'unknown',
+        monthsAhead: months,
+        dataPoints:  historicalData.length,
+        payload:     forecast,
+        historical:  historical
+      }
+    }).catch(err => logger.warn(`Could not store forecast: ${err.message}`));
 
     return successResponse(res, {
       success: true,
-      forecast: forecast,
-      historical: sortedMonths.map(m => ({ month: m, value: Math.round(monthlyData[m]) })),
+      forecast,
+      historical,
       dataPoints: historicalData.length,
-      months: months,
+      months,
+      cached: false,
       timestamp: new Date().toISOString()
     });
 

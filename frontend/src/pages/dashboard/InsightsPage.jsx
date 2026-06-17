@@ -8,6 +8,7 @@ import {
   ExternalLink, Info, Zap, FileText, Download, Lightbulb,
 } from 'lucide-react';
 import { insightsApi } from '../../api/insightsApi';
+import { goalsApi }    from '../../api/goalsApi';
 import { useAuthStore } from '../../store/authStore';
 import { useNavigate }  from 'react-router-dom';
 import toast            from 'react-hot-toast';
@@ -543,78 +544,162 @@ function OffsetTab() {
    TAB 5 — AI GOALS
 ════════════════════════════════════════════════ */
 function GoalsTab() {
-  const [goals,   setGoals]   = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [goals,    setGoals]    = useState([]);
+  const [monthKg,  setMonthKg]  = useState(0);
+  const [loading,  setLoading]  = useState(true);
+  const [title,    setTitle]    = useState('');
+  const [target,   setTarget]   = useState('');
+  const [saving,   setSaving]   = useState(false);
+  const [suggests, setSuggests] = useState(null);
+  const [sugLoad,  setSugLoad]  = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     setLoading(true);
-    insightsApi.getSuggestedGoals()
-      .then(({ data: res }) => setGoals(res.data?.goals ?? []))
-      .catch(() => toast.error('Could not load goals'))
-      .finally(() => setLoading(false));
+    try {
+      const { data: res } = await goalsApi.list();
+      setGoals(res.data?.goals ?? []);
+      setMonthKg(res.data?.currentMonthKg ?? 0);
+    } catch { toast.error('Could not load goals'); }
+    finally { setLoading(false); }
   }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const addGoal = async (e) => {
+    e?.preventDefault();
+    if (!title.trim() || !target) { toast.error('Enter a title and target'); return; }
+    setSaving(true);
+    try {
+      await goalsApi.create({ title: title.trim(), targetKg: parseFloat(target) });
+      setTitle(''); setTarget('');
+      toast.success('Target set!');
+      load();
+    } catch (e) { toast.error(e?.response?.data?.message ?? 'Could not create goal'); }
+    finally { setSaving(false); }
+  };
+
+  const removeGoal = async (id) => {
+    try { await goalsApi.remove(id); setGoals((g) => g.filter((x) => x.id !== id)); }
+    catch { toast.error('Could not delete goal'); }
+  };
+
+  const getSuggestions = async () => {
+    setSugLoad(true);
+    try {
+      const { data: res } = await insightsApi.getSuggestedGoals();
+      setSuggests(res.data?.goals ?? []);
+    } catch { toast.error('Could not fetch AI suggestions'); }
+    finally { setSugLoad(false); }
+  };
 
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: '#9BAEA5' }} /></div>;
 
-  if (!goals.length) return (
-    <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-      <Zap className="h-12 w-12 mb-4" style={{ color: '#C0DDD0' }} />
-      <h3 className="text-base font-semibold mb-2" style={{ color: '#1A2118' }}>No goals yet</h3>
-      <p className="text-sm max-w-xs" style={{ color: '#9BAEA5' }}>Log carbon entries for a few weeks to get AI-powered reduction goals.</p>
-    </div>
-  );
-
-  const CONF = { High: '#2D6A4F', Medium: '#C4952A', Low: '#DC2626' };
-
   return (
     <div className="space-y-5">
-      {goals.map((g, i) => (
-        <motion.div key={i} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08, duration: 0.4 }}>
-          <Card className="p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-bold" style={{ color: '#1A2118' }}>{g.period}</h3>
-                <p className="text-sm mt-1" style={{ color: '#9BAEA5' }}>Realistic reduction target</p>
-              </div>
-              <span className="text-sm font-bold px-3 py-1 rounded-full"
-                style={{ background: `${CONF[g.confidence] || '#9BAEA5'}18`, color: CONF[g.confidence] || '#9BAEA5' }}>
-                {g.confidence} confidence
-              </span>
-            </div>
+      {/* This month banner */}
+      <Card className="p-4 flex items-center justify-between flex-wrap gap-3" style={{ background: '#F8FAF8' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: '#EAF4EE' }}>
+            <Target className="h-5 w-5" style={{ color: '#2D6A4F' }} />
+          </div>
+          <div>
+            <p className="text-xs" style={{ color: '#9BAEA5' }}>This month's emissions so far</p>
+            <p className="text-xl font-bold" style={{ color: '#1A2118' }}>{monthKg.toLocaleString()} <span className="text-sm font-normal" style={{ color:'#9BAEA5' }}>kg CO₂e</span></p>
+          </div>
+        </div>
+        <span className="text-xs" style={{ color: '#9BAEA5' }}>{goals.length} active target{goals.length !== 1 ? 's' : ''}</span>
+      </Card>
 
-            {/* Progress visual */}
-            <div className="mb-5 p-4 rounded-xl" style={{ background: '#F8FAF8', border: '1px solid #E5EAE8' }}>
-              <div className="flex items-end justify-between mb-3">
+      {/* Add target form */}
+      <Card className="p-4">
+        <p className="text-sm font-semibold mb-3" style={{ color: '#1A2118' }}>Set a monthly target</p>
+        <form onSubmit={addGoal} className="flex flex-col sm:flex-row gap-2">
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Cut commute emissions"
+            className="flex-1 px-3 py-2 rounded-lg text-sm outline-none" style={{ border: '1px solid #E5EAE8', color: '#1A2118' }} />
+          <input value={target} onChange={(e) => setTarget(e.target.value)} type="number" min="1" placeholder="Target kg/mo"
+            className="w-full sm:w-40 px-3 py-2 rounded-lg text-sm outline-none" style={{ border: '1px solid #E5EAE8', color: '#1A2118' }} />
+          <button type="submit" disabled={saving}
+            className="px-5 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2"
+            style={{ background: '#2D6A4F' }}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />} Set target
+          </button>
+        </form>
+      </Card>
+
+      {/* Active goals with progress */}
+      {goals.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 text-center px-6">
+          <Target className="h-10 w-10 mb-3" style={{ color: '#C0DDD0' }} />
+          <p className="text-sm" style={{ color: '#9BAEA5' }}>No targets yet — set one above or get an AI suggestion below.</p>
+        </div>
+      ) : goals.map((g, i) => {
+        const pct = Math.min(150, g.progressPct);
+        const barColor = g.onTrack ? '#2D6A4F' : '#DC2626';
+        return (
+          <motion.div key={g.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06, duration: 0.35 }}>
+            <Card className="p-5">
+              <div className="flex items-start justify-between mb-3">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider" style={{ color: '#9BAEA5' }}>Current → Target</p>
-                  <p className="text-2xl font-bold mt-1" style={{ color: '#1A2118' }}>
-                    {g.currentKg || 0} <span style={{ color: '#9BAEA5', fontSize: '16px' }}>→</span> {g.targetKg}
-                  </p>
+                  <h3 className="text-base font-bold" style={{ color: '#1A2118' }}>{g.title}</h3>
+                  <p className="text-xs mt-0.5" style={{ color: '#9BAEA5' }}>{g.targetKg.toLocaleString()} kg CO₂e / month</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold" style={{ color: '#2D6A4F' }}>−{g.reduction}%</p>
-                  <p className="text-xs" style={{ color: '#9BAEA5' }}>reduction</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                    style={{ background: g.onTrack ? '#EAF4EE' : '#FEF2F2', color: barColor }}>
+                    {g.onTrack ? '✓ On track' : '⚠ Over target'}
+                  </span>
+                  <button onClick={() => removeGoal(g.id)} className="text-xs px-2 py-1 rounded-lg hover:bg-gray-100" style={{ color: '#9BAEA5' }}>Remove</button>
                 </div>
               </div>
-
-              {/* Progress bar */}
-              <div className="w-full h-2 rounded-full" style={{ background: '#E5EAE8' }}>
-                <div className="h-full rounded-full transition-all" style={{
-                  background: '#2D6A4F',
-                  width: `${Math.max(10, 100 * (g.targetKg / (g.currentKg || 1)))}%`,
-                }} />
+              <div className="flex items-end justify-between mb-2">
+                <p className="text-2xl font-bold" style={{ color: '#1A2118' }}>
+                  {g.currentKg.toLocaleString()} <span className="text-sm font-normal" style={{ color: '#9BAEA5' }}>/ {g.targetKg.toLocaleString()} kg</span>
+                </p>
+                <p className="text-sm font-bold" style={{ color: barColor }}>{g.progressPct}%</p>
               </div>
-            </div>
+              <div className="w-full h-2.5 rounded-full overflow-hidden" style={{ background: '#F0EDE4' }}>
+                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
+              </div>
+              <p className="text-xs mt-2" style={{ color: '#9BAEA5' }}>
+                {g.onTrack ? `${g.remainingKg.toLocaleString()} kg of headroom left this month.` : `${Math.abs(g.remainingKg).toLocaleString()} kg over your target.`}
+              </p>
+            </Card>
+          </motion.div>
+        );
+      })}
 
-            {/* Strategy */}
-            <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: '#9BAEA5' }}>Primary strategy</p>
-              <p className="text-sm leading-relaxed" style={{ color: '#5A7A6D' }}>{g.strategy}</p>
-              {g.rationale && <p className="text-xs mt-3" style={{ color: '#7A9E8E' }}>💡 {g.rationale}</p>}
+      {/* AI suggestions */}
+      <Card className="p-5">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4" style={{ color: '#C4952A' }} />
+            <h3 className="text-sm font-semibold" style={{ color: '#1A2118' }}>AI-suggested targets</h3>
+          </div>
+          <button onClick={getSuggestions} disabled={sugLoad}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 flex items-center gap-1.5"
+            style={{ background: '#FDF5E6', color: '#C4952A' }}>
+            {sugLoad ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {suggests ? 'Refresh' : 'Get suggestions'}
+          </button>
+        </div>
+        {suggests && (
+          suggests.length ? (
+            <div className="space-y-2 mt-3">
+              {suggests.map((s, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-lg" style={{ background: '#F8FAF8' }}>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: '#1A2118' }}>{s.period || 'Reduction target'}</p>
+                    <p className="text-xs" style={{ color: '#9BAEA5' }}>Target {s.targetKg} kg · {s.strategy}</p>
+                  </div>
+                  <button onClick={() => { setTitle(s.period || 'Reduction target'); setTarget(String(s.targetKg || '')); }}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0" style={{ background: '#EAF4EE', color: '#2D6A4F' }}>
+                    Use
+                  </button>
+                </div>
+              ))}
             </div>
-          </Card>
-        </motion.div>
-      ))}
+          ) : <p className="text-xs mt-3" style={{ color: '#9BAEA5' }}>Not enough data for suggestions yet — log more entries.</p>
+        )}
+      </Card>
     </div>
   );
 }

@@ -21,8 +21,40 @@ model User {
   carbonEntries  CarbonEntry[]
   conversations  Conversation[]
   userChallenges UserChallenge[]
+  forecasts      Forecast[]
+  goals          Goal[]
 
   @@map("users")
+}
+
+model Forecast {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bestModel    String   @db.VarChar(50)              // prophet | xgboost | holt_winters
+  monthsAhead  Int      @default(12)
+  dataPoints   Int      @default(0)                  // # of months the model was trained on
+  payload      Json                                  // full ML response (models, metrics, forecast)
+  historical   Json                                  // [{ month, value }] used for the chart
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("forecasts")
+}
+
+model Goal {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String    @db.VarChar(150)
+  targetKg     Float                                 // monthly CO2e target in kg
+  period       String    @default("monthly") @db.VarChar(20)
+  status       String    @default("active") @db.VarChar(20) // active | achieved | archived
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@map("goals")
 }
 
 model UserChallenge {
