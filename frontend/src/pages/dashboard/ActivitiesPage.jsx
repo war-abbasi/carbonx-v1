@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calculator, Trophy,
   CheckCircle, ChevronDown, Loader2, Send, Medal, Crown,
+  Pencil, Trash2, X,
 } from 'lucide-react';
 import { carbonApi } from '../../api/carbonApi';
 import { useAuthStore } from '../../store/authStore';
@@ -62,6 +63,28 @@ const CATEGORIES = {
       { id: 'vegan',        label: 'Vegan',             unit: 'meal',  hint: 'Number of meals' },
     ],
   },
+  industry: {
+    label: 'Industry & Process', emoji: '🏭',
+    subs: [
+      { id: 'coal',               label: 'Coal (industrial)',          unit: 'kg',    hint: 'Kg of coal burned' },
+      { id: 'furnace_oil',        label: 'Furnace oil / RFO',          unit: 'litre', hint: 'Litres used' },
+      { id: 'natural_gas_boiler', label: 'Natural gas (boiler)',       unit: 'm³',    hint: 'Cubic metres' },
+      { id: 'cement_process',     label: 'Cement (clinker)',           unit: 'kg',    hint: 'Kg of cement produced' },
+      { id: 'steel',              label: 'Steel (crude)',              unit: 'kg',    hint: 'Kg of steel produced' },
+      { id: 'fabric_processing',  label: 'Textile (dyeing/finishing)', unit: 'kg',    hint: 'Kg of fabric processed' },
+      { id: 'brick_kiln',         label: 'Brick kiln',                 unit: 'brick', hint: 'Number of bricks fired' },
+    ],
+  },
+  agriculture: {
+    label: 'Agriculture', emoji: '🌾',
+    subs: [
+      { id: 'rice_paddy',       label: 'Rice paddy',          unit: 'hectare', hint: 'Hectares / season' },
+      { id: 'crop_residue',     label: 'Crop residue burning', unit: 'kg',     hint: 'Kg of residue burned' },
+      { id: 'fertiliser_n',     label: 'Nitrogen fertiliser',  unit: 'kg',     hint: 'Kg of N applied' },
+      { id: 'diesel_tractor',   label: 'Tractor / pump diesel',unit: 'litre',  hint: 'Litres used' },
+      { id: 'livestock_cattle', label: 'Cattle (enteric)',     unit: 'head',   hint: 'Head of cattle (monthly)' },
+    ],
+  },
 };
 
 /* Local emission factors (mirrors backend) */
@@ -70,6 +93,8 @@ const LOCAL_FACTORS = {
   energy:  { electricity: 0.45, natural_gas: 2.1, lpg: 1.51, diesel_gen: 2.68 },
   travel:  { flight_short: 0.255, flight_long: 0.195, car_rental: 0.192, taxi: 0.211 },
   food:    { beef: 6.1, chicken: 0.86, fish: 1.34, vegetarian: 0.50, vegan: 0.30 },
+  industry:    { coal: 2.42, furnace_oil: 3.13, natural_gas_boiler: 2.02, cement_process: 0.53, steel: 1.85, fabric_processing: 1.80, brick_kiln: 0.18 },
+  agriculture: { rice_paddy: 1370, crop_residue: 1.5, fertiliser_n: 4.42, diesel_tractor: 2.68, livestock_cattle: 225 },
 };
 
 function calcKg(category, subCategory, quantity) {
@@ -86,6 +111,8 @@ function CarbonCalculator() {
   const [error,      setError]      = useState('');
   const [recentEntries, setRecentEntries] = useState([]);
   const [loadingEntries, setLoadingEntries] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const category  = CATEGORIES[catKey];
   const subOption = category.subs.find((s) => s.id === subKey) ?? category.subs[0];
@@ -105,15 +132,46 @@ function CarbonCalculator() {
   /* On category change reset sub */
   const handleCatChange = (k) => { setCatKey(k); setSubKey(CATEGORIES[k].subs[0].id); setQuantity(''); };
 
+  const resetForm = () => { setEditingId(null); setQuantity(''); setDesc(''); setError(''); };
+
+  /* Load an entry into the form for editing */
+  const startEdit = (entry) => {
+    const cat = CATEGORIES[entry.category] ? entry.category : 'commute';
+    const sub = CATEGORIES[cat]?.subs.some((s) => s.id === entry.subCategory)
+      ? entry.subCategory : CATEGORIES[cat].subs[0].id;
+    setEditingId(entry.id);
+    setCatKey(cat);
+    setSubKey(sub);
+    setQuantity(String(entry.quantity));
+    setDesc(entry.description ?? '');
+    setError('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const removeEntry = async (id) => {
+    setDeletingId(id);
+    try {
+      await carbonApi.deleteEntry(id);
+      if (editingId === id) resetForm();
+      fetchEntries();
+    } catch (e) {
+      setError(e?.response?.data?.message ?? 'Could not delete entry.');
+    } finally { setDeletingId(null); }
+  };
+
   const handleSubmit = async () => {
     if (!quantity || parseFloat(quantity) <= 0) { setError('Enter a valid quantity.'); return; }
     setError('');
     setSubmitting(true);
     try {
-      await carbonApi.submitEntry({ category: catKey, subCategory: subKey, quantity: parseFloat(quantity), description: desc || undefined });
+      const payload = { category: catKey, subCategory: subKey, quantity: parseFloat(quantity), description: desc || undefined };
+      if (editingId) {
+        await carbonApi.updateEntry(editingId, payload);
+      } else {
+        await carbonApi.submitEntry(payload);
+      }
       setSubmitted(true);
-      setQuantity('');
-      setDesc('');
+      resetForm();
       fetchEntries();
       setTimeout(() => setSubmitted(false), 3000);
     } catch (e) {
@@ -129,7 +187,17 @@ function CarbonCalculator() {
       {/* Calculator form (3/5) */}
       <div className="lg:col-span-3 space-y-4">
         <Card className="p-6">
-          <h2 className="text-sm font-semibold mb-5" style={{ color: '#1A2118' }}>Log Your Carbon Footprint</h2>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-sm font-semibold" style={{ color: '#1A2118' }}>
+              {editingId ? 'Edit Entry' : 'Log Your Carbon Footprint'}
+            </h2>
+            {editingId && (
+              <button onClick={resetForm} className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg"
+                style={{ background: '#F4F6F4', color: '#7A9E8E' }}>
+                <X className="h-3.5 w-3.5" /> Cancel
+              </button>
+            )}
+          </div>
 
           {/* Category tabs */}
           <div className="flex flex-wrap gap-2 mb-5">
@@ -222,7 +290,7 @@ function CarbonCalculator() {
             <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
               className="text-xs mb-3 px-3 py-2 rounded-lg flex items-center gap-2"
               style={{ background: '#EAF4EE', color: '#2D6A4F', border: '1px solid #C0DDD0' }}>
-              <CheckCircle className="h-3.5 w-3.5" /> Entry logged successfully!
+              <CheckCircle className="h-3.5 w-3.5" /> {editingId ? 'Entry updated!' : 'Entry logged successfully!'}
             </motion.p>
           )}
 
@@ -230,8 +298,10 @@ function CarbonCalculator() {
             onClick={handleSubmit}
             disabled={submitting || !quantity || parseFloat(quantity) <= 0}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold text-white transition-all disabled:opacity-40"
-            style={{ background: '#2D6A4F' }}>
-            {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Logging…</> : <><Send className="h-4 w-4" /> Log Entry</>}
+            style={{ background: editingId ? '#C4952A' : '#2D6A4F' }}>
+            {submitting
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> {editingId ? 'Saving…' : 'Logging…'}</>
+              : editingId ? <><Pencil className="h-4 w-4" /> Update Entry</> : <><Send className="h-4 w-4" /> Log Entry</>}
           </button>
         </Card>
       </div>
@@ -254,7 +324,8 @@ function CarbonCalculator() {
           ) : (
             <div className="divide-y" style={{ borderColor: '#F0EDE4' }}>
               {recentEntries.map((entry) => (
-                <div key={entry.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                <div key={entry.id} className="px-5 py-3 flex items-center justify-between gap-2 group"
+                  style={{ background: editingId === entry.id ? '#FDF8EC' : 'transparent' }}>
                   <div className="min-w-0">
                     <p className="text-xs font-semibold capitalize truncate" style={{ color: '#1A2118' }}>
                       {entry.subCategory?.replace(/_/g, ' ')}
@@ -263,9 +334,19 @@ function CarbonCalculator() {
                       {entry.category} · {entry.quantity} {entry.unit}
                     </p>
                   </div>
-                  <span className="text-xs font-bold flex-shrink-0" style={{ color: '#2D6A4F' }}>
-                    {entry.valueKg.toFixed(2)} kg
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="text-xs font-bold" style={{ color: '#2D6A4F' }}>
+                      {entry.valueKg.toFixed(2)} kg
+                    </span>
+                    <button onClick={() => startEdit(entry)} title="Edit"
+                      className="p-1.5 rounded-md hover:bg-gray-100 transition-colors" style={{ color: '#9BAEA5' }}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => removeEntry(entry.id)} title="Delete" disabled={deletingId === entry.id}
+                      className="p-1.5 rounded-md hover:bg-red-50 transition-colors disabled:opacity-40" style={{ color: '#DC8585' }}>
+                      {deletingId === entry.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -1,5 +1,5 @@
 const {
-  createEntry, bulkCreateEntries, getUserEntries, getLeaderboard,
+  createEntry, updateEntry, deleteEntry, bulkCreateEntries, getUserEntries, getLeaderboard,
   getUserSummary, getAnalytics, getForecast, FACTORS,
 } = require('../services/carbonService');
 const { successResponse, errorResponse } = require('../utils/response');
@@ -26,6 +26,29 @@ async function submitEntry(req, res, next) {
   } catch (err) {
     next(err);
   }
+}
+
+/* PATCH /api/carbon/entries/:id */
+async function editEntry(req, res, next) {
+  try {
+    const entryId = parseInt(req.params.id);
+    if (isNaN(entryId)) return errorResponse(res, 'Invalid entry id.', 400);
+    const { category, subCategory, quantity, description, entryDate } = req.body;
+    const entry = await updateEntry({
+      userId: req.user.id, entryId, category, subCategory, quantity, description, entryDate,
+    });
+    return successResponse(res, entry, 'Entry updated.');
+  } catch (err) { next(err); }
+}
+
+/* DELETE /api/carbon/entries/:id */
+async function removeEntry(req, res, next) {
+  try {
+    const entryId = parseInt(req.params.id);
+    if (isNaN(entryId)) return errorResponse(res, 'Invalid entry id.', 400);
+    const result = await deleteEntry({ userId: req.user.id, entryId });
+    return successResponse(res, result, 'Entry deleted.');
+  } catch (err) { next(err); }
 }
 
 /* GET /api/carbon/entries */
@@ -109,4 +132,4 @@ async function getFactors(req, res) {
   return successResponse(res, FACTORS, 'Emission factors fetched.');
 }
 
-module.exports = { submitEntry, bulkUpload, getMyEntries, getSummary, leaderboard, analytics, forecast, getFactors };
+module.exports = { submitEntry, editEntry, removeEntry, bulkUpload, getMyEntries, getSummary, leaderboard, analytics, forecast, getFactors };

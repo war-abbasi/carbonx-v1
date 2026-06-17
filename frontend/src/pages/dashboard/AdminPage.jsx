@@ -341,10 +341,12 @@ function DataImportTab() {
   const fileRef = useRef();
 
   const VALID_CATS = {
-    commute: ['car_petrol','car_diesel','car_electric','motorbike','bus','train','walking'],
-    energy:  ['electricity','natural_gas','lpg','diesel_gen'],
-    travel:  ['flight_short','flight_long','car_rental','taxi'],
-    food:    ['beef','chicken','fish','vegetarian','vegan'],
+    commute:     ['car_petrol','car_diesel','car_electric','motorbike','bus','train','walking'],
+    energy:      ['electricity','natural_gas','lpg','diesel_gen'],
+    travel:      ['flight_short','flight_long','car_rental','taxi'],
+    food:        ['beef','chicken','fish','vegetarian','vegan'],
+    industry:    ['coal','furnace_oil','natural_gas_boiler','cement_process','steel','fabric_processing','brick_kiln'],
+    agriculture: ['rice_paddy','crop_residue','fertiliser_n','diesel_tractor','livestock_cattle'],
   };
 
   const parseCSV = (text) => {

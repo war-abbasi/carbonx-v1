@@ -33,6 +33,24 @@ const FACTORS = {
     vegetarian:   { factor: 0.50,  unit: 'meal', label: 'Vegetarian',          scope: 'personal' },
     vegan:        { factor: 0.30,  unit: 'meal', label: 'Vegan',               scope: 'personal' },
   },
+  /* Pakistan industrial process & combustion (mostly Scope 1 direct) */
+  industry: {
+    coal:               { factor: 2.42,  unit: 'kg',    label: 'Coal (industrial)',          scope: 'scope1' },
+    furnace_oil:        { factor: 3.13,  unit: 'litre', label: 'Furnace oil / RFO',          scope: 'scope1' },
+    natural_gas_boiler: { factor: 2.02,  unit: 'm3',    label: 'Natural gas (boiler/process)',scope: 'scope1' },
+    cement_process:     { factor: 0.53,  unit: 'kg',    label: 'Cement (clinker process)',   scope: 'scope1' },
+    steel:              { factor: 1.85,  unit: 'kg',    label: 'Steel (crude)',              scope: 'scope1' },
+    fabric_processing:  { factor: 1.80,  unit: 'kg',    label: 'Textile (dyeing/finishing)', scope: 'scope1' },
+    brick_kiln:         { factor: 0.18,  unit: 'brick', label: 'Brick kiln (per brick)',     scope: 'scope1' },
+  },
+  /* Pakistan agriculture (Scope 1 — direct emissions on farm) */
+  agriculture: {
+    rice_paddy:       { factor: 1370,  unit: 'hectare', label: 'Rice paddy (per hectare/season)', scope: 'scope1' },
+    crop_residue:     { factor: 1.5,   unit: 'kg',      label: 'Crop residue burning',            scope: 'scope1' },
+    fertiliser_n:     { factor: 4.42,  unit: 'kg',      label: 'Nitrogen fertiliser (N₂O)',       scope: 'scope1' },
+    diesel_tractor:   { factor: 2.68,  unit: 'litre',   label: 'Tractor / pump diesel',           scope: 'scope1' },
+    livestock_cattle: { factor: 225,   unit: 'head',    label: 'Cattle (enteric, per head/month)',scope: 'scope1' },
+  },
 };
 
 function getFactorInfo(category, subCategory) {
@@ -147,6 +165,53 @@ async function createEntry({ userId, category, subCategory, quantity, descriptio
     },
     include: { user: { select: { id: true, name: true } } },
   });
+}
+
+/* ─── Update an entry (owner only) ────────────── */
+async function updateEntry({ userId, entryId, category, subCategory, quantity, description, entryDate }) {
+  const existing = await prisma.carbonEntry.findUnique({ where: { id: entryId } });
+  if (!existing || existing.userId !== userId) {
+    const err = new Error('Entry not found.'); err.statusCode = 404; throw err;
+  }
+
+  // Resolve final category/sub to recompute the factor
+  const cat = category ?? existing.category;
+  const sub = subCategory ?? existing.subCategory;
+  const factorInfo = getFactorInfo(cat, sub);
+  if (!factorInfo) {
+    const err = new Error('Unknown category / sub-category combination.'); err.statusCode = 400; throw err;
+  }
+
+  const qty = quantity != null ? parseFloat(quantity) : existing.quantity;
+  if (isNaN(qty) || qty < 0) {
+    const err = new Error('quantity must be a positive number.'); err.statusCode = 400; throw err;
+  }
+
+  const valueKg = parseFloat((qty * factorInfo.factor).toFixed(4));
+
+  return prisma.carbonEntry.update({
+    where: { id: entryId },
+    data: {
+      category:    cat,
+      subCategory: sub,
+      scope:       factorInfo.scope,
+      unit:        factorInfo.unit,
+      quantity:    qty,
+      valueKg,
+      description: description !== undefined ? (description || null) : existing.description,
+      entryDate:   entryDate ? new Date(entryDate) : existing.entryDate,
+    },
+  });
+}
+
+/* ─── Delete an entry (owner only) ────────────── */
+async function deleteEntry({ userId, entryId }) {
+  const existing = await prisma.carbonEntry.findUnique({ where: { id: entryId } });
+  if (!existing || existing.userId !== userId) {
+    const err = new Error('Entry not found.'); err.statusCode = 404; throw err;
+  }
+  await prisma.carbonEntry.delete({ where: { id: entryId } });
+  return { id: entryId };
 }
 
 /* ─── User's own entries ──────────────────────── */
@@ -655,4 +720,4 @@ async function getForecast(userId, isAdmin = false, forecastMonths = 6) {
   };
 }
 
-module.exports = { createEntry, bulkCreateEntries, getUserEntries, getLeaderboard, getUserSummary, getAnalytics, getForecast, FACTORS };
+module.exports = { createEntry, updateEntry, deleteEntry, bulkCreateEntries, getUserEntries, getLeaderboard, getUserSummary, getAnalytics, getForecast, FACTORS };

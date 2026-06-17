@@ -4,6 +4,12 @@ export const carbonApi = {
   /** Submit a new carbon entry */
   submitEntry: (data) => api.post('/carbon/entries', data),
 
+  /** Edit an existing entry */
+  updateEntry: (id, data) => api.patch(`/carbon/entries/${id}`, data),
+
+  /** Delete an entry */
+  deleteEntry: (id) => api.delete(`/carbon/entries/${id}`),
+
   /** Get own entries */
   getMyEntries: (limit = 20) => api.get(`/carbon/entries?limit=${limit}`),
 
