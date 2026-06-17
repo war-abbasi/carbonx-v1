@@ -145,18 +145,8 @@ class ModelComparison:
     @staticmethod
     def _score(actual: List[float], pred: List[float]) -> Dict:
         """Out-of-sample metrics for actual vs predicted arrays."""
-        a = np.asarray(actual, dtype=float)
-        p = np.asarray(pred, dtype=float)[:len(a)]
-        resid = a - p
-        rmse = float(np.sqrt(np.mean(resid ** 2)))
-        mae = float(np.mean(np.abs(resid)))
-        mape = float(np.mean(np.abs(resid / (np.abs(a) + 1e-6))) * 100)
-        ss_res = float(np.sum(resid ** 2))
-        ss_tot = float(np.sum((a - np.mean(a)) ** 2))
-        r2 = 1 - (ss_res / ss_tot) if ss_tot > 1e-9 else 0.0
-        r2 = max(0.0, min(1.0, r2))
-        return {'rmse': round(rmse, 4), 'mae': round(mae, 4),
-                'mape': round(mape, 2), 'r2': round(r2, 4)}
+        from .metrics import score
+        return score(actual, pred)
 
     def _holdout_metrics(self, data: List[float], employee_counts: Optional[List],
                          start_date: str) -> Dict:

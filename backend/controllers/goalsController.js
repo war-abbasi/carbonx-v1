@@ -1,5 +1,6 @@
 const { prisma } = require('../config/db');
 const { successResponse, errorResponse } = require('../utils/response');
+const { computeProgress } = require('../utils/goalProgress');
 
 /* Current-month emissions total for a user (kg CO2e). */
 async function currentMonthTotal(userId) {
@@ -14,16 +15,7 @@ async function currentMonthTotal(userId) {
 
 /* Attach live progress to a goal row. */
 function withProgress(goal, monthKg) {
-  const target  = goal.targetKg || 0;
-  const pct     = target > 0 ? Math.round((monthKg / target) * 100) : 0;
-  const onTrack = monthKg <= target;
-  return {
-    ...goal,
-    currentKg: monthKg,
-    progressPct: pct,
-    onTrack,
-    remainingKg: parseFloat((target - monthKg).toFixed(2)),
-  };
+  return { ...goal, ...computeProgress(goal, monthKg) };
 }
 
 /* GET /api/goals */

@@ -735,6 +735,38 @@ function ReportTab() {
     a.click();
   };
 
+  const downloadPDF = async () => {
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      const margin = 48, maxW = 595 - margin * 2;
+      let y = margin;
+      const line = (text, size, color, weight = 'normal', gap = 6) => {
+        doc.setFont('helvetica', weight); doc.setFontSize(size); doc.setTextColor(...color);
+        const wrapped = doc.splitTextToSize(text, maxW);
+        wrapped.forEach((w) => {
+          if (y > 800) { doc.addPage(); y = margin; }
+          doc.text(w, margin, y); y += size + gap;
+        });
+      };
+      // Header band
+      doc.setFillColor(45, 106, 79); doc.rect(0, 0, 595, 70, 'F');
+      doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
+      doc.text('CarbonX', margin, 34);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+      doc.text(`Sustainability Report · ${new Date().toLocaleDateString()}`, margin, 52);
+      y = 96;
+      report.split('\n').forEach((l) => {
+        if (l.startsWith('# '))       line(l.slice(2), 16, [26, 33, 24], 'bold', 8);
+        else if (l.startsWith('## ')) line(l.slice(3), 13, [26, 33, 24], 'bold', 7);
+        else if (l.startsWith('- '))  line('•  ' + l.slice(2), 10.5, [60, 82, 71], 'normal', 5);
+        else if (l.trim() === '')     { y += 6; }
+        else                          line(l, 10.5, [60, 82, 71], 'normal', 5);
+      });
+      doc.save(`carbonx-report-${new Date().toISOString().slice(0,10)}.pdf`);
+    } catch { toast.error('Could not generate PDF.'); }
+  };
+
   return (
     <div className="space-y-5">
       {!report ? (
@@ -789,10 +821,15 @@ function ReportTab() {
 
           {/* Actions */}
           <div className="flex gap-3 flex-wrap">
+            <button onClick={downloadPDF}
+              className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-white"
+              style={{ background: '#2D6A4F' }}>
+              <FileText className="h-4 w-4" /> Download PDF
+            </button>
             <button onClick={downloadReport}
               className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold"
               style={{ background: '#EAF4EE', color: '#2D6A4F', border: '1px solid #C0DDD0' }}>
-              <Download className="h-4 w-4" /> Download
+              <Download className="h-4 w-4" /> Markdown
             </button>
             <button onClick={generateNow} disabled={loading}
               className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold"

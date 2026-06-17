@@ -10,7 +10,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "create-admin": "node scripts/createAdmin.js"
+    "create-admin": "node scripts/createAdmin.js",
+    "test": "jest"
   },
   "dependencies": {
     "@prisma/client": "^5.19.1",
@@ -26,6 +27,7 @@
     "morgan": "^1.10.0"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "nodemon": "^3.1.4",
     "prisma": "^5.19.1"
   }

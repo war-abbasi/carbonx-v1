@@ -45,4 +45,49 @@ async function loginUser({ email, password }) {
   return { user: safeUser, token };
 }
 
-module.exports = { registerUser, loginUser };
+async function updateProfile({ userId, name, email }) {
+  const data = {};
+  if (name != null) {
+    if (String(name).trim().length < 2) {
+      const err = new Error('Name must be at least 2 characters.'); err.statusCode = 400; throw err;
+    }
+    data.name = String(name).trim();
+  }
+  if (email != null) {
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const clash = await prisma.user.findFirst({
+      where: { email: normalizedEmail, NOT: { id: userId } },
+      select: { id: true },
+    });
+    if (clash) { const err = new Error('That email is already in use.'); err.statusCode = 409; throw err; }
+    data.email = normalizedEmail;
+  }
+  if (Object.keys(data).length === 0) {
+    const err = new Error('Nothing to update.'); err.statusCode = 400; throw err;
+  }
+  return prisma.user.update({
+    where: { id: userId },
+    data,
+    select: { id: true, name: true, email: true, role: true, createdAt: true },
+  });
+}
+
+async function changePassword({ userId, currentPassword, newPassword }) {
+  if (!currentPassword || !newPassword) {
+    const err = new Error('Current and new password are required.'); err.statusCode = 400; throw err;
+  }
+  if (String(newPassword).length < 8) {
+    const err = new Error('New password must be at least 8 characters.'); err.statusCode = 400; throw err;
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) { const err = new Error('User not found.'); err.statusCode = 404; throw err; }
+
+  const ok = await bcrypt.compare(currentPassword, user.password);
+  if (!ok) { const err = new Error('Current password is incorrect.'); err.statusCode = 401; throw err; }
+
+  const hashed = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({ where: { id: userId }, data: { password: hashed } });
+  return { updated: true };
+}
+
+module.exports = { registerUser, loginUser, updateProfile, changePassword };
