@@ -19,7 +19,10 @@ async function main() {
   await prisma.$connect();
 
   const users = await prisma.user.findMany({
-    where: { email: { endsWith: '@test.com' }, role: { not: 'ADMIN' } },
+    where: {
+      role: { not: 'ADMIN' },
+      OR: [{ email: { endsWith: '@test.com' } }, { email: { endsWith: '@example.com' } }],
+    },
     select: { id: true, name: true, email: true },
   });
 
