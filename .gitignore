@@ -39,3 +39,7 @@ Thumbs.db
 .cache/
 
 .vercel
+
+# Python
+__pycache__/
+*.pyc
