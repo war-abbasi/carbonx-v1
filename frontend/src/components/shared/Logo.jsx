@@ -12,13 +12,14 @@ export function Logo({ variant = 'full', className, linkTo = '/' }) {
         className={cn('h-10 w-10 object-contain', className)}
       />
     ) : (
-      /* Crop any whitespace by using a constrained container with overflow-hidden */
-      <div className={cn('flex items-center', className)}>
+      /* The source PNG is a 500x500 square with heavy transparent padding.
+         Crop the padding with overflow-hidden and scale the mark up so it reads large. */
+      <div className={cn('relative overflow-hidden flex items-center justify-center', className)}>
         <img
           src={logoImg}
           alt="CarbonX"
-          className="h-full w-auto object-contain"
-          style={{ maxHeight: '100%', display: 'block' }}
+          className="w-full h-full object-contain"
+          style={{ transform: 'scale(2.1)', display: 'block' }}
         />
       </div>
     );

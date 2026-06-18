@@ -1,6 +1,66 @@
 const Groq              = require('groq-sdk');
 const { prisma }        = require('../config/db');
 const { errorResponse } = require('../utils/response');
+const { FACTORS }       = require('../services/carbonService');
+
+/* ── Activity extractor (fast model, parallel with system prompt) ── */
+const FACTOR_CATALOGUE = Object.entries(FACTORS)
+  .map(([cat, subs]) =>
+    `${cat}: ${Object.entries(subs).map(([sub, fi]) => `${sub}(${fi.unit})`).join(', ')}`)
+  .join('\n');
+
+async function extractActivity(text) {
+  if (!process.env.GROQ_API_KEY) return null;
+  try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const resp = await groq.chat.completions.create({
+      model:       'llama-3.1-8b-instant',
+      max_tokens:  100,
+      temperature: 0,
+      messages: [
+        {
+          role: 'system',
+          content: `Extract carbon emission activities from user messages. Return ONLY valid JSON, no markdown.
+
+Valid categories and their sub-categories (unit):
+${FACTOR_CATALOGUE}
+
+If the user describes a specific activity they did/are reporting WITH a measurable quantity, return:
+{"detected":true,"category":"...","subCategory":"...","quantity":NUMBER}
+
+Otherwise return: {"detected":false}
+
+Rules:
+- quantity must be a positive number
+- only return detected:true when confident about all three fields
+- for flights with city names, estimate km (e.g. Karachi→Lahore ≈ 1050, Lahore→Dubai ≈ 2150)
+- do NOT detect questions, tips requests, or general discussion as activities`,
+        },
+        { role: 'user', content: text },
+      ],
+    });
+
+    let raw = (resp.choices[0]?.message?.content ?? '').trim()
+      .replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+    const parsed = JSON.parse(raw);
+    if (!parsed.detected) return null;
+
+    const fi = FACTORS[parsed.category]?.[parsed.subCategory];
+    if (!fi || !(parsed.quantity > 0)) return null;
+
+    return {
+      category:    parsed.category,
+      subCategory: parsed.subCategory,
+      quantity:    parsed.quantity,
+      unit:        fi.unit,
+      label:       fi.label,
+      scope:       fi.scope,
+      valueKg:     parseFloat((parsed.quantity * fi.factor).toFixed(4)),
+    };
+  } catch {
+    return null;
+  }
+}
 
 /* ── Build system prompt with user's live carbon data ── */
 async function buildSystemPrompt(userId, isAdmin) {
@@ -124,6 +184,13 @@ async function chat(req, res, next) {
       }
     }
 
+    /* Run system prompt build + activity extraction in parallel */
+    const userText = String(lastUserMsg?.text || lastUserMsg?.content || '');
+    const [systemPrompt, activityCard] = await Promise.all([
+      buildSystemPrompt(req.user.id, req.user.role === 'ADMIN'),
+      extractActivity(userText),
+    ]);
+
     /* SSE stream headers */
     res.writeHead(200, {
       'Content-Type':      'text/event-stream',
@@ -132,11 +199,15 @@ async function chat(req, res, next) {
       'X-Accel-Buffering': 'no',
     });
 
-    /* Send conversationId as first event so frontend knows the ID */
+    /* First event: conversationId so frontend can track the thread */
     res.write(`data: ${JSON.stringify({ init: true, conversationId: conv.id })}\n\n`);
 
-    const groq         = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const systemPrompt = await buildSystemPrompt(req.user.id, req.user.role === 'ADMIN');
+    /* Activity card event — if extraction detected an activity */
+    if (activityCard) {
+      res.write(`data: ${JSON.stringify({ activityCard })}\n\n`);
+    }
+
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
     /* Last 12 messages as history */
     const history = messages.slice(-12).map(m => ({

@@ -30,7 +30,9 @@ export function useAuth() {
       const { data } = await authApi.register({ name, email, password });
       login(data.data.user, data.data.token);
       toast.success('Account created! Welcome to CarbonX.');
-      navigate('/dashboard');
+      // New users go through the educational onboarding slides first;
+      // OnboardingPage forwards them to /dashboard when done/skipped.
+      navigate('/onboarding');
     } catch (err) {
       const msg = err.response?.data?.message || 'Registration failed. Please try again.';
       toast.error(msg);

@@ -78,11 +78,54 @@ const CATEGORIES = {
   agriculture: {
     label: 'Agriculture', emoji: '🌾',
     subs: [
-      { id: 'rice_paddy',       label: 'Rice paddy',          unit: 'hectare', hint: 'Hectares / season' },
-      { id: 'crop_residue',     label: 'Crop residue burning', unit: 'kg',     hint: 'Kg of residue burned' },
-      { id: 'fertiliser_n',     label: 'Nitrogen fertiliser',  unit: 'kg',     hint: 'Kg of N applied' },
-      { id: 'diesel_tractor',   label: 'Tractor / pump diesel',unit: 'litre',  hint: 'Litres used' },
-      { id: 'livestock_cattle', label: 'Cattle (enteric)',     unit: 'head',   hint: 'Head of cattle (monthly)' },
+      { id: 'rice_paddy',       label: 'Rice paddy',           unit: 'hectare', hint: 'Hectares / season' },
+      { id: 'crop_residue',     label: 'Crop residue burning',  unit: 'kg',     hint: 'Kg of residue burned' },
+      { id: 'fertiliser_n',     label: 'Nitrogen fertiliser',   unit: 'kg',     hint: 'Kg of N applied' },
+      { id: 'diesel_tractor',   label: 'Tractor / pump diesel', unit: 'litre',  hint: 'Litres used' },
+      { id: 'livestock_cattle', label: 'Cattle (enteric)',      unit: 'head',   hint: 'Head of cattle (monthly)' },
+    ],
+  },
+  purchased_goods: {
+    label: 'Purchased Goods', emoji: '📦',
+    subs: [
+      { id: 'paper',           label: 'Office paper',           unit: 'kg',   hint: 'Kg of paper used' },
+      { id: 'plastic_pkg',     label: 'Plastic packaging',      unit: 'kg',   hint: 'Kg of plastic packaging' },
+      { id: 'it_equipment',    label: 'IT equipment (laptop)',   unit: 'unit', hint: 'Number of units' },
+      { id: 'office_supplies', label: 'General office supplies', unit: 'kg',   hint: 'Kg of supplies' },
+    ],
+  },
+  upstream_transport: {
+    label: 'Upstream Freight', emoji: '🚢',
+    subs: [
+      { id: 'road_freight', label: 'Road freight (HGV)',      unit: 'tonne-km', hint: 'Tonne × km' },
+      { id: 'sea_freight',  label: 'Sea freight (container)', unit: 'tonne-km', hint: 'Tonne × km' },
+      { id: 'air_freight',  label: 'Air freight (cargo)',     unit: 'tonne-km', hint: 'Tonne × km' },
+      { id: 'rail_freight', label: 'Rail freight',            unit: 'tonne-km', hint: 'Tonne × km' },
+    ],
+  },
+  waste: {
+    label: 'Waste', emoji: '♻️',
+    subs: [
+      { id: 'landfill',   label: 'Landfill (mixed)',     unit: 'kg', hint: 'Kg sent to landfill' },
+      { id: 'recycled',   label: 'Mixed recycling',      unit: 'kg', hint: 'Kg recycled' },
+      { id: 'composted',  label: 'Composting',           unit: 'kg', hint: 'Kg composted' },
+      { id: 'wastewater', label: 'Wastewater treatment', unit: 'm3', hint: 'Cubic metres treated' },
+    ],
+  },
+  downstream_transport: {
+    label: 'Downstream Freight', emoji: '🚚',
+    subs: [
+      { id: 'road_delivery', label: 'Road delivery (HGV)',    unit: 'tonne-km', hint: 'Tonne × km' },
+      { id: 'last_mile',     label: 'Last-mile van delivery', unit: 'tonne-km', hint: 'Tonne × km' },
+      { id: 'cold_chain',    label: 'Cold chain distribution',unit: 'tonne-km', hint: 'Tonne × km' },
+    ],
+  },
+  end_of_life: {
+    label: 'End of Life', emoji: '🗑️',
+    subs: [
+      { id: 'e_waste',            label: 'Electronics recycling',    unit: 'kg', hint: 'Kg of e-waste' },
+      { id: 'construction_waste', label: 'Construction waste',       unit: 'kg', hint: 'Kg of construction waste' },
+      { id: 'mixed_waste_eol',    label: 'Mixed product waste (EOL)', unit: 'kg', hint: 'Kg of end-of-life products' },
     ],
   },
 };
@@ -93,8 +136,13 @@ const LOCAL_FACTORS = {
   energy:  { electricity: 0.45, natural_gas: 2.1, lpg: 1.51, diesel_gen: 2.68 },
   travel:  { flight_short: 0.255, flight_long: 0.195, car_rental: 0.192, taxi: 0.211 },
   food:    { beef: 6.1, chicken: 0.86, fish: 1.34, vegetarian: 0.50, vegan: 0.30 },
-  industry:    { coal: 2.42, furnace_oil: 3.13, natural_gas_boiler: 2.02, cement_process: 0.53, steel: 1.85, fabric_processing: 1.80, brick_kiln: 0.18 },
-  agriculture: { rice_paddy: 1370, crop_residue: 1.5, fertiliser_n: 4.42, diesel_tractor: 2.68, livestock_cattle: 225 },
+  industry:             { coal: 2.42, furnace_oil: 3.13, natural_gas_boiler: 2.02, cement_process: 0.53, steel: 1.85, fabric_processing: 1.80, brick_kiln: 0.18 },
+  agriculture:          { rice_paddy: 1370, crop_residue: 1.5, fertiliser_n: 4.42, diesel_tractor: 2.68, livestock_cattle: 225 },
+  purchased_goods:      { paper: 1.37, plastic_pkg: 2.53, it_equipment: 300, office_supplies: 0.85 },
+  upstream_transport:   { road_freight: 0.11, sea_freight: 0.008, air_freight: 0.602, rail_freight: 0.028 },
+  waste:                { landfill: 0.46, recycled: 0.021, composted: 0.01, wastewater: 0.35 },
+  downstream_transport: { road_delivery: 0.11, last_mile: 0.184, cold_chain: 0.22 },
+  end_of_life:          { e_waste: 0.020, construction_waste: 0.025, mixed_waste_eol: 0.46 },
 };
 
 function calcKg(category, subCategory, quantity) {

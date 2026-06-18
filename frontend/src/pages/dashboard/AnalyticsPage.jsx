@@ -493,6 +493,73 @@ function EmptyState({ navigate }) {
 
 
 
+/* ─── GHG Protocol Scope 3 panel ─────────────── */
+const GHG_CAT_COLORS = {
+  'Cat 1 — Purchased Goods & Services':         '#6366F1',
+  'Cat 4 — Upstream Transport & Distribution':  '#0EA5E9',
+  'Cat 5 — Waste in Operations':                '#14B8A6',
+  'Cat 6 — Business Travel':                    '#F59E0B',
+  'Cat 7 — Employee Commuting':                 '#8B5E3C',
+  'Cat 9 — Downstream Transport & Distribution':'#3B82F6',
+  'Cat 12 — End-of-Life Treatment':             '#EC4899',
+  'Other Scope 3':                              '#9BAEA5',
+};
+
+function Scope3Panel({ breakdown, totalScope3 }) {
+  const maxKg = Math.max(...breakdown.map((b) => b.kg), 0.001);
+  return (
+    <Card className="p-6">
+      <div className="flex items-start justify-between mb-1 flex-wrap gap-2">
+        <div>
+          <h2 className="text-sm font-semibold" style={{ color: '#1A2118' }}>
+            GHG Protocol — Scope 3 Category Breakdown
+          </h2>
+          <p className="text-xs mt-0.5" style={{ color: '#9BAEA5' }}>
+            Breakdown of your indirect value-chain emissions across the 15 GHG Protocol categories
+          </p>
+        </div>
+        <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+          style={{ background: '#F3F0FF', color: '#6366F1' }}>
+          {totalScope3 >= 1000 ? `${(totalScope3/1000).toFixed(2)}t` : `${totalScope3.toFixed(2)}kg`} Scope 3 total
+        </span>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {breakdown.map((b) => {
+          const color = GHG_CAT_COLORS[b.cat] ?? '#9BAEA5';
+          const barPct = (b.kg / maxKg) * 100;
+          return (
+            <div key={b.cat}>
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: color }} />
+                  <span className="truncate font-medium" style={{ color: '#3D5247' }}>{b.cat}</span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                  <span style={{ color: '#9BAEA5' }}>
+                    {b.kg >= 1000 ? `${(b.kg/1000).toFixed(2)}t` : `${b.kg}kg`}
+                  </span>
+                  <span className="font-bold w-10 text-right" style={{ color }}>{b.pct}%</span>
+                </div>
+              </div>
+              <div className="h-2 rounded-full" style={{ background: '#F0EDE4' }}>
+                <motion.div
+                  initial={{ width: 0 }} animate={{ width: `${barPct}%` }}
+                  transition={{ delay: 0.2, duration: 0.7 }}
+                  className="h-full rounded-full" style={{ background: color }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-[10px] mt-4 pt-3" style={{ borderTop: '1px solid #F0EDE4', color: '#9BAEA5' }}>
+        GHG Protocol Corporate Value Chain (Scope 3) Standard · DEFRA 2023 emission factors
+      </p>
+    </Card>
+  );
+}
+
 /* ════════════════════════════════════════════════
    CONSTANTS
 ════════════════════════════════════════════════ */
@@ -504,7 +571,19 @@ const RANGES = [
 ];
 
 const SCOPE_COLORS = ['#2D6A4F', '#C4952A', '#8B5E3C', '#52B788'];
-const CAT_COLORS   = { commute: '#2D6A4F', energy: '#C4952A', travel: '#8B5E3C', food: '#52B788' };
+const CAT_COLORS   = {
+  commute:              '#2D6A4F',
+  energy:               '#C4952A',
+  travel:               '#8B5E3C',
+  food:                 '#52B788',
+  industry:             '#E07020',
+  agriculture:          '#6B9E5E',
+  purchased_goods:      '#6366F1',
+  upstream_transport:   '#0EA5E9',
+  waste:                '#14B8A6',
+  downstream_transport: '#3B82F6',
+  end_of_life:          '#EC4899',
+};
 
 /* ════════════════════════════════════════════════
    PAGE
@@ -685,6 +764,11 @@ export default function AnalyticsPage() {
                     </div>
                   </Card>
                 </div>
+
+                {/* ── GHG Protocol Scope 3 Breakdown ── */}
+                {analytics.scope3Breakdown?.length > 0 && (
+                  <Scope3Panel breakdown={analytics.scope3Breakdown} totalScope3={analytics.kpis.scope3} />
+                )}
 
                 {/* ── Top sources + Category detail cards ── */}
                 <div className="grid lg:grid-cols-3 gap-5">

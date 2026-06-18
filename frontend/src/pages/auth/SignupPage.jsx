@@ -84,7 +84,7 @@ export default function SignupPage() {
         <div className="auth-card rounded-2xl p-8 sm:p-10">
           {/* Logo */}
           <div className="flex justify-center mb-6">
-            <Logo className="h-11" linkTo="/" />
+            <Logo className="h-14 w-36" linkTo="/" />
           </div>
 
           {/* Tab switcher */}

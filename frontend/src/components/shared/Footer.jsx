@@ -36,7 +36,7 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <Logo className="h-7 mb-4" />
+            <Logo className="h-14 w-36 mb-4" />
             <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'var(--text-muted)' }}>
               AI-powered sustainability intelligence for organizations that demand precision, foresight, and measurable environmental impact.
             </p>

@@ -8,53 +8,53 @@
 ═══════════════════════════════════════════════ */
 
 :root {
-  --font-sans: 'Manrope', system-ui, sans-serif;
-  --font-display: 'Sora', system-ui, sans-serif;
+  --font-sans: 'Poppins', system-ui, sans-serif;
+  --font-display: 'Poppins', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
   /* ── Backgrounds ── */
-  --bg:             #F7F5EF;
-  --bg-elevated:    #FFFDFC;
+  --bg:             #F6F9F6;
+  --bg-elevated:    #FDFFFE;
   --bg-card:        #FFFFFF;
-  --surface:        #F1ECE3;
+  --surface:        #EBF2EC;
 
   /* ── Borders ── */
-  --border:         rgba(31, 48, 60, 0.10);
-  --border-strong:  rgba(31, 48, 60, 0.20);
+  --border:         rgba(27, 60, 35, 0.10);
+  --border-strong:  rgba(27, 60, 35, 0.20);
 
   /* ── Text ── */
-  --text:           #16202A;
-  --text-muted:     #4A5A68;
-  --text-dim:       #6C7B87;
+  --text:           #14201A;
+  --text-muted:     #475A50;
+  --text-dim:       #6A7D72;
 
-  /* ── Accent — Deep Teal ── */
-  --accent:         #1F6F78;
-  --accent-rgb:     31, 111, 120;
-  --accent-glow:    rgba(31, 111, 120, 0.12);
-  --accent-dark:    #124B53;
+  /* ── Accent — Forest Green (logo leaf color) ── */
+  --accent:         #2B7A3C;
+  --accent-rgb:     43, 122, 60;
+  --accent-glow:    rgba(43, 122, 60, 0.12);
+  --accent-dark:    #1A5229;
 
   /* ── Secondary accents ── */
-  --accent-warm:    #B8892C;          /* amber / gold */
-  --accent-warm-rgb:184, 137, 44;
-  --accent-blue:    #5B8FA8;          /* muted blue */
-  --accent-gold:    #8A6A3D;          /* warm neutral */
+  --accent-warm:    #8B5C1A;          /* brown — logo "carbon" text color */
+  --accent-warm-rgb:139, 92, 26;
+  --accent-blue:    #4A7FA8;          /* muted blue */
+  --accent-gold:    #7A5C2A;          /* warm brown-gold */
 
   /* ── State ── */
   --danger:         #B91C1C;
 
   /* ── Nav / glass ── */
-  --nav-bg:         rgba(247, 245, 239, 0.92);
-  --glass-bg:       rgba(255, 255, 255, 0.88);
-  --glass-border:   rgba(31, 48, 60, 0.12);
+  --nav-bg:         rgba(246, 249, 246, 0.94);
+  --glass-bg:       rgba(255, 255, 255, 0.90);
+  --glass-border:   rgba(27, 60, 35, 0.12);
 
   /* ── Shadows (lighter, professional) ── */
-  --shadow-xs:      0 1px 4px rgba(22,32,42,0.05);
-  --shadow-sm:      0 2px 10px rgba(22,32,42,0.08);
-  --shadow-md:      0 8px 28px rgba(22,32,42,0.10);
-  --shadow-lg:      0 20px 56px rgba(22,32,42,0.14);
+  --shadow-xs:      0 1px 4px rgba(20,32,26,0.05);
+  --shadow-sm:      0 2px 10px rgba(20,32,26,0.08);
+  --shadow-md:      0 8px 28px rgba(20,32,26,0.10);
+  --shadow-lg:      0 20px 56px rgba(20,32,26,0.14);
 
   /* ── Grid ── */
-  --grid-color:     rgba(31, 111, 120, 0.05);
+  --grid-color:     rgba(43, 122, 60, 0.05);
 
   /* ── Easing ── */
   --ease-out:       cubic-bezier(0.16, 1, 0.3, 1);
@@ -63,40 +63,40 @@
 
 /* ── Dark mode overrides ── */
 html.dark {
-  --bg:             #0D1418;
-  --bg-elevated:    #111B20;
-  --bg-card:        #15232A;
-  --surface:        #1A2830;
+  --bg:             #0C1410;
+  --bg-elevated:    #101C14;
+  --bg-card:        #142018;
+  --surface:        #1A2C1E;
 
-  --border:         rgba(91, 143, 168, 0.14);
-  --border-strong:  rgba(91, 143, 168, 0.28);
+  --border:         rgba(76, 175, 106, 0.14);
+  --border-strong:  rgba(76, 175, 106, 0.28);
 
-  --text:           #E8EEF1;
-  --text-muted:     #9AAAB4;
-  --text-dim:       #667782;
+  --text:           #E4EDE6;
+  --text-muted:     #92AA98;
+  --text-dim:       #647A6A;
 
-  --accent:         #5B8FA8;
-  --accent-rgb:     91, 143, 168;
-  --accent-glow:    rgba(91, 143, 168, 0.18);
-  --accent-dark:    #3C6B83;
+  --accent:         #4CAF6A;
+  --accent-rgb:     76, 175, 106;
+  --accent-glow:    rgba(76, 175, 106, 0.18);
+  --accent-dark:    #2D7A3C;
 
-  --accent-warm:    #D4A44B;
-  --accent-warm-rgb:212, 164, 75;
-  --accent-blue:    #7EB0C3;
-  --accent-gold:    #C1A177;
+  --accent-warm:    #D4944B;
+  --accent-warm-rgb:212, 148, 75;
+  --accent-blue:    #6AAFD4;
+  --accent-gold:    #C4974A;
 
   --danger:         #EF6B6B;
 
-  --nav-bg:         rgba(13, 20, 24, 0.92);
-  --glass-bg:       rgba(21, 35, 42, 0.88);
-  --glass-border:   rgba(91, 143, 168, 0.16);
+  --nav-bg:         rgba(12, 20, 16, 0.94);
+  --glass-bg:       rgba(20, 32, 24, 0.90);
+  --glass-border:   rgba(76, 175, 106, 0.16);
 
   --shadow-xs:      0 1px 4px rgba(0,0,0,0.28);
   --shadow-sm:      0 2px 12px rgba(0,0,0,0.36);
   --shadow-md:      0 6px 32px rgba(0,0,0,0.46);
   --shadow-lg:      0 20px 60px rgba(0,0,0,0.60);
 
-  --grid-color:     rgba(91, 143, 168, 0.05);
+  --grid-color:     rgba(76, 175, 106, 0.05);
 }
 
 /* ═══════════════════════════════════════════════
@@ -223,17 +223,18 @@ html.dark {
     border-radius: 2px;
   }
 
-  /* ── Section title (serif) ── */
+  /* ── Section title ── */
   .section-title {
     font-family: var(--font-display);
-    font-weight: 600;
-    line-height: 1.08;
+    font-weight: 700;
+    line-height: 1.1;
     color: var(--text);
-    letter-spacing: -0.04em;
+    letter-spacing: -0.02em;
   }
   .section-title em {
-    font-style: italic;
+    font-style: normal;
     color: var(--accent);
+    font-weight: 700;
   }
 
   /* ── Input field ── */

@@ -341,12 +341,17 @@ function DataImportTab() {
   const fileRef = useRef();
 
   const VALID_CATS = {
-    commute:     ['car_petrol','car_diesel','car_electric','motorbike','bus','train','walking'],
-    energy:      ['electricity','natural_gas','lpg','diesel_gen'],
-    travel:      ['flight_short','flight_long','car_rental','taxi'],
-    food:        ['beef','chicken','fish','vegetarian','vegan'],
-    industry:    ['coal','furnace_oil','natural_gas_boiler','cement_process','steel','fabric_processing','brick_kiln'],
-    agriculture: ['rice_paddy','crop_residue','fertiliser_n','diesel_tractor','livestock_cattle'],
+    commute:              ['car_petrol','car_diesel','car_electric','motorbike','bus','train','walking'],
+    energy:               ['electricity','natural_gas','lpg','diesel_gen'],
+    travel:               ['flight_short','flight_long','car_rental','taxi'],
+    food:                 ['beef','chicken','fish','vegetarian','vegan'],
+    industry:             ['coal','furnace_oil','natural_gas_boiler','cement_process','steel','fabric_processing','brick_kiln'],
+    agriculture:          ['rice_paddy','crop_residue','fertiliser_n','diesel_tractor','livestock_cattle'],
+    purchased_goods:      ['paper','plastic_pkg','it_equipment','office_supplies'],
+    upstream_transport:   ['road_freight','sea_freight','air_freight','rail_freight'],
+    waste:                ['landfill','recycled','composted','wastewater'],
+    downstream_transport: ['road_delivery','last_mile','cold_chain'],
+    end_of_life:          ['e_waste','construction_waste','mixed_waste_eol'],
   };
 
   const parseCSV = (text) => {
@@ -433,7 +438,7 @@ function DataImportTab() {
             <div className="grid grid-cols-2 gap-2 mt-2">
               {[
                 { col:'date', ex:'2026-01-15', note:'YYYY-MM-DD · past dates only' },
-                { col:'category', ex:'commute', note:'commute | energy | travel | food' },
+                { col:'category', ex:'commute', note:'commute | energy | travel | food | industry | agriculture | purchased_goods | waste | upstream_transport | downstream_transport | end_of_life' },
                 { col:'sub_category', ex:'car_petrol', note:'see list below' },
                 { col:'quantity', ex:'25', note:'positive number (km / kWh / meal)' },
                 { col:'description', ex:'Daily commute', note:'optional — free text' },

@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Send, Sparkles, User, Plus, Trash2,
   MessageSquare, ChevronLeft, ChevronRight,
-  Copy, Check, RefreshCw, Pencil, X,
+  Copy, Check, RefreshCw, Pencil, X, Leaf, Loader2,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import iconImg from '../../assets/carbonx-icon.png';
 import api from '../../api/axios';
+import { carbonApi } from '../../api/carbonApi';
 import toast from 'react-hot-toast';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -37,12 +38,96 @@ function groupByDate(convs) {
 
 const QUICK_PROMPTS = [
   "What's my biggest emission source?",
-  "Mera footprint kam karne ke liye kya karun?",
+  "I drove 30km to work today",
   "Explain Scope 3 emissions",
-  "Aaj ke liye 3 tips do carbon reduce karne ki",
+  "I used 200 kWh electricity this month",
   "Give me a 30-day reduction plan",
-  "What is net-zero?",
+  "Flew Lahore to Dubai today",
 ];
+
+const CAT_EMOJI = {
+  commute:              '🚗',
+  energy:               '⚡',
+  travel:               '✈️',
+  food:                 '🍽️',
+  industry:             '🏭',
+  agriculture:          '🌾',
+  purchased_goods:      '📦',
+  upstream_transport:   '🚢',
+  waste:                '♻️',
+  downstream_transport: '🚚',
+  end_of_life:          '🗑️',
+};
+
+/* ─── Activity confirm card ───────────────────── */
+function ActivityConfirmCard({ card, onConfirm, onDismiss, state }) {
+  const emoji = CAT_EMOJI[card.category] ?? '📊';
+  const isHigh = card.valueKg > 5;
+
+  if (state === 'confirmed') {
+    return (
+      <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+        className="flex items-center gap-2.5 mt-2 px-4 py-3 rounded-xl"
+        style={{ background: '#EAF4EE', border: '1px solid #C0DDD0', maxWidth: 320 }}>
+        <Check className="h-4 w-4 flex-shrink-0" style={{ color: '#2D6A4F' }} />
+        <p className="text-xs font-semibold" style={{ color: '#1B4332' }}>
+          Logged {card.valueKg} kg CO₂e — {card.label}
+        </p>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+      className="mt-2 rounded-xl overflow-hidden"
+      style={{ border: '1px solid #C0DDD0', maxWidth: 320, background: '#fff' }}>
+
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-2.5"
+        style={{ background: '#EAF4EE', borderBottom: '1px solid #C0DDD0' }}>
+        <Leaf className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#2D6A4F' }} />
+        <span className="text-xs font-bold" style={{ color: '#1B4332' }}>Activity detected — log it?</span>
+        <button onClick={onDismiss} className="ml-auto p-0.5 rounded hover:bg-white/50" style={{ color: '#7A9E8E' }}>
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="px-4 py-3">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xl">{emoji}</span>
+          <div>
+            <p className="text-sm font-semibold capitalize" style={{ color: '#1A2118' }}>{card.label}</p>
+            <p className="text-xs" style={{ color: '#9BAEA5' }}>
+              {card.quantity} {card.unit} · {card.scope}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-baseline gap-1 mb-3">
+          <span className="text-2xl font-bold" style={{ color: isHigh ? '#DC2626' : '#2D6A4F' }}>
+            {card.valueKg.toFixed(3)}
+          </span>
+          <span className="text-sm" style={{ color: '#9BAEA5' }}>kg CO₂e</span>
+          {isHigh && <span className="text-sm ml-1">⚠️</span>}
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onConfirm} disabled={state === 'logging'}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-60"
+            style={{ background: '#2D6A4F' }}>
+            {state === 'logging'
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Logging…</>
+              : <><Check className="h-3.5 w-3.5" /> Log Entry</>}
+          </button>
+          <button onClick={onDismiss}
+            className="px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+            style={{ background: '#F4F6F4', color: '#7A9E8E' }}>
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 /* ─── Markdown renderer ───────────────────────── */
 function MsgText({ text }) {
@@ -114,6 +199,8 @@ export default function ChatPage() {
   const [editingId,   setEditingId]   = useState(null);
   const [editTitle,   setEditTitle]   = useState('');
   const [apiOk,       setApiOk]       = useState(true);
+  // activityCards: { [assistantMsgId]: { card, state: 'pending'|'logging'|'confirmed'|'dismissed' } }
+  const [activityCards, setActivityCards] = useState({});
 
   const bottomRef  = useRef(null);
   const abortRef   = useRef(null);
@@ -244,8 +331,15 @@ export default function ChatPage() {
             if (data.init) {
               newConvId = data.conversationId;
               setActiveId(data.conversationId);
-              /* Refresh sidebar list to show new/updated conversation */
               loadConvs();
+            }
+
+            /* Activity card detected by extraction model */
+            if (data.activityCard) {
+              setActivityCards(prev => ({
+                ...prev,
+                [assistantId]: { card: data.activityCard, state: 'pending' },
+              }));
             }
 
             if (data.text) {
@@ -259,7 +353,6 @@ export default function ChatPage() {
               setMessages(prev => prev.map(m =>
                 m.id === assistantId ? { ...m, done: true } : m
               ));
-              /* Refresh sidebar to update title and updatedAt */
               loadConvs();
             }
 
@@ -279,6 +372,29 @@ export default function ChatPage() {
       inputRef.current?.focus();
     }
   }, [messages, streaming, token, activeId, loadConvs]);
+
+  /* ── Confirm an activity card ── */
+  const confirmActivity = useCallback(async (msgId) => {
+    const entry = activityCards[msgId];
+    if (!entry) return;
+    setActivityCards(prev => ({ ...prev, [msgId]: { ...prev[msgId], state: 'logging' } }));
+    try {
+      await carbonApi.submitEntry({
+        category:    entry.card.category,
+        subCategory: entry.card.subCategory,
+        quantity:    entry.card.quantity,
+      });
+      setActivityCards(prev => ({ ...prev, [msgId]: { ...prev[msgId], state: 'confirmed' } }));
+      toast.success(`${entry.card.valueKg} kg CO₂e logged!`);
+    } catch {
+      setActivityCards(prev => ({ ...prev, [msgId]: { ...prev[msgId], state: 'pending' } }));
+      toast.error('Could not log entry. Try again.');
+    }
+  }, [activityCards]);
+
+  const dismissActivity = useCallback((msgId) => {
+    setActivityCards(prev => ({ ...prev, [msgId]: { ...prev[msgId], state: 'dismissed' } }));
+  }, []);
 
   /* ─── group conversations by date ─── */
   const groups = groupByDate(convs);
@@ -503,6 +619,15 @@ export default function ChatPage() {
                     <span className="text-[10px]" style={{ color: '#BFCDC7' }}>{m.time}</span>
                     {m.role === 'assistant' && m.done && m.text && <CopyBtn text={m.text} />}
                   </div>
+                  {/* Activity confirm card — shown below assistant bubbles only */}
+                  {m.role === 'assistant' && activityCards[m.id] && activityCards[m.id].state !== 'dismissed' && (
+                    <ActivityConfirmCard
+                      card={activityCards[m.id].card}
+                      state={activityCards[m.id].state}
+                      onConfirm={() => confirmActivity(m.id)}
+                      onDismiss={() => dismissActivity(m.id)}
+                    />
+                  )}
                 </div>
               </motion.div>
             ))}

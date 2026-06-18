@@ -6,50 +6,83 @@ const { prisma } = require('../config/db');
 ───────────────────────────────────────────────── */
 const FACTORS = {
   commute: {
-    car_petrol:   { factor: 0.192, unit: 'km',    label: 'Car (petrol)',       scope: 'scope1'   },
-    car_diesel:   { factor: 0.171, unit: 'km',    label: 'Car (diesel)',       scope: 'scope1'   },
-    car_electric: { factor: 0.047, unit: 'km',    label: 'Car (electric)',     scope: 'scope2'   },
-    motorbike:    { factor: 0.114, unit: 'km',    label: 'Motorbike',          scope: 'scope1'   },
-    bus:          { factor: 0.089, unit: 'km',    label: 'Bus',                scope: 'scope3'   },
-    train:        { factor: 0.041, unit: 'km',    label: 'Train',              scope: 'scope3'   },
-    walking:      { factor: 0,     unit: 'km',    label: 'Walking / Cycling',  scope: 'personal' },
+    car_petrol:   { factor: 0.192, unit: 'km',    label: 'Car (petrol)',       scope: 'scope1',   ghgCat: null },
+    car_diesel:   { factor: 0.171, unit: 'km',    label: 'Car (diesel)',       scope: 'scope1',   ghgCat: null },
+    car_electric: { factor: 0.047, unit: 'km',    label: 'Car (electric)',     scope: 'scope2',   ghgCat: null },
+    motorbike:    { factor: 0.114, unit: 'km',    label: 'Motorbike',          scope: 'scope1',   ghgCat: null },
+    bus:          { factor: 0.089, unit: 'km',    label: 'Bus',                scope: 'scope3',   ghgCat: 'Cat 7 — Employee Commuting' },
+    train:        { factor: 0.041, unit: 'km',    label: 'Train',              scope: 'scope3',   ghgCat: 'Cat 7 — Employee Commuting' },
+    walking:      { factor: 0,     unit: 'km',    label: 'Walking / Cycling',  scope: 'personal', ghgCat: null },
   },
   energy: {
-    electricity:  { factor: 0.45,  unit: 'kWh',  label: 'Electricity (grid)', scope: 'scope2'   },
-    natural_gas:  { factor: 2.1,   unit: 'm3',   label: 'Natural gas',        scope: 'scope1'   },
-    lpg:          { factor: 1.51,  unit: 'kg',   label: 'LPG / cylinder',     scope: 'scope1'   },
-    diesel_gen:   { factor: 2.68,  unit: 'litre', label: 'Diesel generator',  scope: 'scope1'   },
+    electricity:  { factor: 0.45,  unit: 'kWh',  label: 'Electricity (grid)', scope: 'scope2',   ghgCat: null },
+    natural_gas:  { factor: 2.1,   unit: 'm3',   label: 'Natural gas',        scope: 'scope1',   ghgCat: null },
+    lpg:          { factor: 1.51,  unit: 'kg',   label: 'LPG / cylinder',     scope: 'scope1',   ghgCat: null },
+    diesel_gen:   { factor: 2.68,  unit: 'litre', label: 'Diesel generator',  scope: 'scope1',   ghgCat: null },
   },
   travel: {
-    flight_short: { factor: 0.255, unit: 'km',   label: 'Flight (short-haul)', scope: 'scope3'  },
-    flight_long:  { factor: 0.195, unit: 'km',   label: 'Flight (long-haul)',  scope: 'scope3'  },
-    car_rental:   { factor: 0.192, unit: 'km',   label: 'Rental car',          scope: 'scope3'  },
-    taxi:         { factor: 0.211, unit: 'km',   label: 'Taxi / ride-share',   scope: 'scope3'  },
+    flight_short: { factor: 0.255, unit: 'km',   label: 'Flight (short-haul)', scope: 'scope3',  ghgCat: 'Cat 6 — Business Travel' },
+    flight_long:  { factor: 0.195, unit: 'km',   label: 'Flight (long-haul)',  scope: 'scope3',  ghgCat: 'Cat 6 — Business Travel' },
+    car_rental:   { factor: 0.192, unit: 'km',   label: 'Rental car',          scope: 'scope3',  ghgCat: 'Cat 6 — Business Travel' },
+    taxi:         { factor: 0.211, unit: 'km',   label: 'Taxi / ride-share',   scope: 'scope3',  ghgCat: 'Cat 6 — Business Travel' },
   },
   food: {
-    beef:         { factor: 6.1,   unit: 'meal', label: 'Beef meal',           scope: 'personal' },
-    chicken:      { factor: 0.86,  unit: 'meal', label: 'Chicken meal',        scope: 'personal' },
-    fish:         { factor: 1.34,  unit: 'meal', label: 'Fish meal',           scope: 'personal' },
-    vegetarian:   { factor: 0.50,  unit: 'meal', label: 'Vegetarian',          scope: 'personal' },
-    vegan:        { factor: 0.30,  unit: 'meal', label: 'Vegan',               scope: 'personal' },
+    beef:         { factor: 6.1,   unit: 'meal', label: 'Beef meal',           scope: 'personal', ghgCat: null },
+    chicken:      { factor: 0.86,  unit: 'meal', label: 'Chicken meal',        scope: 'personal', ghgCat: null },
+    fish:         { factor: 1.34,  unit: 'meal', label: 'Fish meal',           scope: 'personal', ghgCat: null },
+    vegetarian:   { factor: 0.50,  unit: 'meal', label: 'Vegetarian',          scope: 'personal', ghgCat: null },
+    vegan:        { factor: 0.30,  unit: 'meal', label: 'Vegan',               scope: 'personal', ghgCat: null },
   },
-  /* Pakistan industrial process & combustion (mostly Scope 1 direct) */
+  /* Pakistan industrial process & combustion (Scope 1 direct) */
   industry: {
-    coal:               { factor: 2.42,  unit: 'kg',    label: 'Coal (industrial)',          scope: 'scope1' },
-    furnace_oil:        { factor: 3.13,  unit: 'litre', label: 'Furnace oil / RFO',          scope: 'scope1' },
-    natural_gas_boiler: { factor: 2.02,  unit: 'm3',    label: 'Natural gas (boiler/process)',scope: 'scope1' },
-    cement_process:     { factor: 0.53,  unit: 'kg',    label: 'Cement (clinker process)',   scope: 'scope1' },
-    steel:              { factor: 1.85,  unit: 'kg',    label: 'Steel (crude)',              scope: 'scope1' },
-    fabric_processing:  { factor: 1.80,  unit: 'kg',    label: 'Textile (dyeing/finishing)', scope: 'scope1' },
-    brick_kiln:         { factor: 0.18,  unit: 'brick', label: 'Brick kiln (per brick)',     scope: 'scope1' },
+    coal:               { factor: 2.42,  unit: 'kg',    label: 'Coal (industrial)',           scope: 'scope1', ghgCat: null },
+    furnace_oil:        { factor: 3.13,  unit: 'litre', label: 'Furnace oil / RFO',           scope: 'scope1', ghgCat: null },
+    natural_gas_boiler: { factor: 2.02,  unit: 'm3',    label: 'Natural gas (boiler/process)',scope: 'scope1', ghgCat: null },
+    cement_process:     { factor: 0.53,  unit: 'kg',    label: 'Cement (clinker process)',    scope: 'scope1', ghgCat: null },
+    steel:              { factor: 1.85,  unit: 'kg',    label: 'Steel (crude)',               scope: 'scope1', ghgCat: null },
+    fabric_processing:  { factor: 1.80,  unit: 'kg',    label: 'Textile (dyeing/finishing)',  scope: 'scope1', ghgCat: null },
+    brick_kiln:         { factor: 0.18,  unit: 'brick', label: 'Brick kiln (per brick)',      scope: 'scope1', ghgCat: null },
   },
   /* Pakistan agriculture (Scope 1 — direct emissions on farm) */
   agriculture: {
-    rice_paddy:       { factor: 1370,  unit: 'hectare', label: 'Rice paddy (per hectare/season)', scope: 'scope1' },
-    crop_residue:     { factor: 1.5,   unit: 'kg',      label: 'Crop residue burning',            scope: 'scope1' },
-    fertiliser_n:     { factor: 4.42,  unit: 'kg',      label: 'Nitrogen fertiliser (N₂O)',       scope: 'scope1' },
-    diesel_tractor:   { factor: 2.68,  unit: 'litre',   label: 'Tractor / pump diesel',           scope: 'scope1' },
-    livestock_cattle: { factor: 225,   unit: 'head',    label: 'Cattle (enteric, per head/month)',scope: 'scope1' },
+    rice_paddy:       { factor: 1370,  unit: 'hectare', label: 'Rice paddy (per hectare/season)', scope: 'scope1', ghgCat: null },
+    crop_residue:     { factor: 1.5,   unit: 'kg',      label: 'Crop residue burning',            scope: 'scope1', ghgCat: null },
+    fertiliser_n:     { factor: 4.42,  unit: 'kg',      label: 'Nitrogen fertiliser (N₂O)',       scope: 'scope1', ghgCat: null },
+    diesel_tractor:   { factor: 2.68,  unit: 'litre',   label: 'Tractor / pump diesel',           scope: 'scope1', ghgCat: null },
+    livestock_cattle: { factor: 225,   unit: 'head',    label: 'Cattle (enteric, per head/month)',scope: 'scope1', ghgCat: null },
+  },
+  /* GHG Protocol Scope 3 — Cat 1: Purchased Goods & Services (DEFRA 2023) */
+  purchased_goods: {
+    paper:           { factor: 1.37,  unit: 'kg',   label: 'Office paper',          scope: 'scope3', ghgCat: 'Cat 1 — Purchased Goods & Services' },
+    plastic_pkg:     { factor: 2.53,  unit: 'kg',   label: 'Plastic packaging',     scope: 'scope3', ghgCat: 'Cat 1 — Purchased Goods & Services' },
+    it_equipment:    { factor: 300,   unit: 'unit', label: 'IT equipment (laptop)',  scope: 'scope3', ghgCat: 'Cat 1 — Purchased Goods & Services' },
+    office_supplies: { factor: 0.85,  unit: 'kg',   label: 'General office supplies',scope: 'scope3', ghgCat: 'Cat 1 — Purchased Goods & Services' },
+  },
+  /* GHG Protocol Scope 3 — Cat 4: Upstream Transport & Distribution (DEFRA 2023) */
+  upstream_transport: {
+    road_freight: { factor: 0.11,  unit: 'tonne-km', label: 'Road freight (HGV)',   scope: 'scope3', ghgCat: 'Cat 4 — Upstream Transport & Distribution' },
+    sea_freight:  { factor: 0.008, unit: 'tonne-km', label: 'Sea freight (container)',scope: 'scope3', ghgCat: 'Cat 4 — Upstream Transport & Distribution' },
+    air_freight:  { factor: 0.602, unit: 'tonne-km', label: 'Air freight (cargo)',   scope: 'scope3', ghgCat: 'Cat 4 — Upstream Transport & Distribution' },
+    rail_freight: { factor: 0.028, unit: 'tonne-km', label: 'Rail freight',          scope: 'scope3', ghgCat: 'Cat 4 — Upstream Transport & Distribution' },
+  },
+  /* GHG Protocol Scope 3 — Cat 5: Waste Generated in Operations (DEFRA 2023) */
+  waste: {
+    landfill:    { factor: 0.46,  unit: 'kg', label: 'Landfill (mixed waste)',  scope: 'scope3', ghgCat: 'Cat 5 — Waste in Operations' },
+    recycled:    { factor: 0.021, unit: 'kg', label: 'Mixed recycling',         scope: 'scope3', ghgCat: 'Cat 5 — Waste in Operations' },
+    composted:   { factor: 0.01,  unit: 'kg', label: 'Composting',             scope: 'scope3', ghgCat: 'Cat 5 — Waste in Operations' },
+    wastewater:  { factor: 0.35,  unit: 'm3', label: 'Wastewater treatment',   scope: 'scope3', ghgCat: 'Cat 5 — Waste in Operations' },
+  },
+  /* GHG Protocol Scope 3 — Cat 9: Downstream Transport & Distribution */
+  downstream_transport: {
+    road_delivery:  { factor: 0.11,  unit: 'tonne-km', label: 'Road delivery (HGV)',     scope: 'scope3', ghgCat: 'Cat 9 — Downstream Transport & Distribution' },
+    last_mile:      { factor: 0.184, unit: 'tonne-km', label: 'Last-mile van delivery',  scope: 'scope3', ghgCat: 'Cat 9 — Downstream Transport & Distribution' },
+    cold_chain:     { factor: 0.22,  unit: 'tonne-km', label: 'Cold chain distribution', scope: 'scope3', ghgCat: 'Cat 9 — Downstream Transport & Distribution' },
+  },
+  /* GHG Protocol Scope 3 — Cat 12: End-of-Life Treatment of Sold Products */
+  end_of_life: {
+    e_waste:             { factor: 0.020, unit: 'kg', label: 'Electronics recycling',     scope: 'scope3', ghgCat: 'Cat 12 — End-of-Life Treatment' },
+    construction_waste:  { factor: 0.025, unit: 'kg', label: 'Construction waste',        scope: 'scope3', ghgCat: 'Cat 12 — End-of-Life Treatment' },
+    mixed_waste_eol:     { factor: 0.46,  unit: 'kg', label: 'Mixed product waste (EOL)', scope: 'scope3', ghgCat: 'Cat 12 — End-of-Life Treatment' },
   },
 };
 
@@ -453,6 +486,17 @@ async function getAnalytics(userId, isAdmin = false, period = 'year') {
   ].filter((s) => s.kg > 0)
    .map((s) => ({ ...s, kg: fmt(s.kg), percentage: total > 0 ? parseFloat((s.kg/total*100).toFixed(1)) : 0 }));
 
+  /* ── GHG Protocol Scope 3 category breakdown ── */
+  const ghg3Map = {};
+  entries.filter((e) => e.scope === 'scope3').forEach((e) => {
+    const fi     = getFactorInfo(e.category, e.subCategory);
+    const ghgCat = fi?.ghgCat ?? 'Other Scope 3';
+    ghg3Map[ghgCat] = (ghg3Map[ghgCat] ?? 0) + e.valueKg;
+  });
+  const scope3Breakdown = Object.entries(ghg3Map)
+    .map(([cat, kg]) => ({ cat, kg: fmt(kg), pct: scope3 > 0 ? parseFloat((kg / scope3 * 100).toFixed(1)) : 0 }))
+    .sort((a, b) => b.kg - a.kg);
+
   /* ── Employee comparison (admin only) ── */
   let employeeComparison = [];
   if (isAdmin && entries.length > 0) {
@@ -487,6 +531,7 @@ async function getAnalytics(userId, isAdmin = false, period = 'year') {
     byCategory,
     topSources,
     scopeBreakdown,
+    scope3Breakdown,
     employeeComparison,
     sustainabilityScore: calcSustainabilityScore(entries, timeSeries),
     period,

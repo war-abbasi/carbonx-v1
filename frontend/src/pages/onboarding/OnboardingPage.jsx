@@ -12,7 +12,7 @@ const slides = [
     tag: 'Welcome',
     title: 'Welcome to CarbonX',
     subtitle: 'Your AI-powered carbon intelligence platform',
-    body: 'Track, analyze, and reduce your organization\'s carbon footprint with enterprise-grade precision. Trusted by sustainability leaders in 28 countries.',
+    body: 'Track, analyze, and reduce your organization\'s carbon footprint with enterprise-grade precision — aligned with the GHG Protocol across Scope 1, 2 & 3.',
     visual: (
       <div className="relative flex items-center justify-center h-48">
         <div className="w-32 h-32 rounded-full flex items-center justify-center" style={{ background: '#EAF4EE', border: '2px solid #C0DDD0' }}>

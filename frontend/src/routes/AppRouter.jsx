@@ -1,12 +1,7 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage     from '../pages/landing/LandingPage';
 import LoginPage       from '../pages/auth/LoginPage';
 import SignupPage      from '../pages/auth/SignupPage';
-import FeaturesPage    from '../pages/features/FeaturesPage';
-import HowItWorksPage  from '../pages/how-it-works/HowItWorksPage';
-import CalculatorPage  from '../pages/calculator/CalculatorPage';
-import AboutPage       from '../pages/about/AboutPage';
-import ContactPage     from '../pages/contact/ContactPage';
 
 import OnboardingPage  from '../pages/onboarding/OnboardingPage';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -22,24 +17,19 @@ import AdminPage       from '../pages/dashboard/AdminPage';
 import ProtectedRoute  from './ProtectedRoute';
 import AdminRoute      from './AdminRoute';
 import PublicRoute     from './PublicRoute';
-import Navbar          from '../components/layout/Navbar';
-
-function PublicPageLayout({ children }) {
-  return <><Navbar />{children}</>;
-}
 
 export default function AppRouter() {
   return (
     <Routes>
-      {/* Landing */}
+      {/* Landing — single one-pager */}
       <Route path="/" element={<LandingPage />} />
 
-      {/* Public info pages */}
-      <Route path="/features"     element={<PublicPageLayout><FeaturesPage /></PublicPageLayout>} />
-      <Route path="/how-it-works" element={<PublicPageLayout><HowItWorksPage /></PublicPageLayout>} />
-      <Route path="/calculator"   element={<PublicPageLayout><CalculatorPage /></PublicPageLayout>} />
-      <Route path="/about"        element={<PublicPageLayout><AboutPage /></PublicPageLayout>} />
-      <Route path="/contact"      element={<PublicPageLayout><ContactPage /></PublicPageLayout>} />
+      {/* Redirect old standalone pages to home */}
+      <Route path="/features"     element={<Navigate to="/" replace />} />
+      <Route path="/how-it-works" element={<Navigate to="/" replace />} />
+      <Route path="/calculator"   element={<Navigate to="/" replace />} />
+      <Route path="/about"        element={<Navigate to="/" replace />} />
+      <Route path="/contact"      element={<Navigate to="/" replace />} />
 
       {/* Auth */}
       <Route path="/login"  element={<PublicRoute><LoginPage /></PublicRoute>} />
