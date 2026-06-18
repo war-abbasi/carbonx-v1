@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   BrainCircuit, Loader2, RefreshCw, AlertCircle, Sparkles,
-  TrendingUp, TrendingDown, Activity,
-  Gauge, Layers, Zap, CalendarClock, Award,
+  TrendingUp, TrendingDown, Activity, CalendarClock,
 } from 'lucide-react';
 import { insightsApi } from '../../api/insightsApi';
 
@@ -17,21 +16,6 @@ function Card({ className = '', style = {}, children, ...rest }) {
   );
 }
 
-const MODEL_META = {
-  prophet:      { name: 'Prophet',      color: '#2D6A4F', blurb: 'Trend + seasonality (Meta)' },
-  xgboost:      { name: 'XGBoost',      color: '#C4952A', blurb: 'Gradient-boosted trees' },
-  holt_winters: { name: 'Holt-Winters', color: '#3B6CA8', blurb: 'Exponential smoothing' },
-};
-
-const FEATURE_LABELS = {
-  lag_1: 'Last month', lag_3: '3 months ago', lag_6: '6 months ago', lag_12: 'Same month last year',
-  rolling_mean_3: '3-month average', rolling_mean_6: '6-month average', rolling_mean_12: '12-month average',
-  rolling_std_3: '3-month volatility', rolling_std_6: '6-month volatility',
-  month: 'Month of year', quarter: 'Quarter', is_summer: 'Summer', is_winter: 'Winter',
-  trend: 'Long-term trend', employee_count: 'Headcount', emissions_per_employee: 'Per-employee',
-  yoy_change: 'Year-on-year change',
-};
-
 function monthLabel(ym) {
   if (!ym || typeof ym !== 'string') return ym || '';
   const [y, m] = ym.split('-');
@@ -42,60 +26,75 @@ function monthLabel(ym) {
 }
 const fmtKg = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}t` : `${Math.round(n)}`);
 
+/* ── Smooth (Catmull-Rom → bezier) path through points ── */
+function smoothPath(pts) {
+  if (pts.length < 2) return pts.length ? `M${pts[0].x},${pts[0].y}` : '';
+  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
 /* ════════════════════════════════════════════════
    Forecast chart  (historical solid + forecast dashed + CI band)
 ════════════════════════════════════════════════ */
 function ForecastChart({ historical, forecast: fc }) {
   const all = [...historical, ...fc];
-  const W=720, H=220, PAD={t:20,b:32,l:12,r:12};
+  const W=720, H=260, PAD={t:24,b:34,l:40,r:14};
   const iW=W-PAD.l-PAD.r, iH=H-PAD.t-PAD.b;
   const maxVal=Math.max(...historical.map(h=>h.actual),...fc.map(f=>f.upper),0.001);
   const toXY=(i0,val)=>({x:PAD.l+(i0/(all.length-1))*iW,y:PAD.t+iH-(val/maxVal)*iH});
   const hPts=historical.map((h,i)=>({...toXY(i,h.actual),label:h.label,v:h.actual}));
   const fPts=fc.map((f,i)=>({...toXY(historical.length+i,f.predicted),upper:toXY(historical.length+i,f.upper).y,lower:toXY(historical.length+i,f.lower).y,label:f.label,v:f.predicted}));
-  const hPath=hPts.map((p,i)=>`${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  const fPath=hPts.length?`M${hPts[hPts.length-1].x.toFixed(1)},${hPts[hPts.length-1].y.toFixed(1)} `+fPts.map(p=>`L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '):'';
-  const band=fPts.length>=1?fPts.map((p,i)=>`${i===0?'M':'L'}${p.x.toFixed(1)},${p.upper.toFixed(1)}`).join(' ')+' '+fPts.slice().reverse().map(p=>`L${p.x.toFixed(1)},${p.lower.toFixed(1)}`).join(' ')+' Z':'';
+  // continuous forecast line starts at last historical point
+  const fLinePts = hPts.length ? [hPts[hPts.length-1], ...fPts] : fPts;
+  const hPath=smoothPath(hPts);
+  const fPath=smoothPath(fLinePts);
+  const upperPath=smoothPath(fPts.map(p=>({x:p.x,y:p.upper})));
+  const lowerPts=fPts.map(p=>({x:p.x,y:p.lower})).reverse();
+  const band=fPts.length>=1 ? `${upperPath} L${lowerPts[0].x.toFixed(1)},${lowerPts[0].y.toFixed(1)} ${smoothPath(lowerPts).replace(/^M[^C]*/, '')} Z` : '';
   const divX=hPts.length?hPts[hPts.length-1].x:0;
   const step=Math.max(1,Math.ceil(all.length/9));
+  const fmtY=(v)=>v>=1000?`${(v/1000).toFixed(1)}t`:Math.round(v);
   return (
     <div className="w-full overflow-x-auto">
       <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{minWidth:'340px'}}>
-        {[0.25,0.5,0.75,1].map(f=><line key={f} x1={PAD.l} y1={PAD.t+iH*(1-f)} x2={W-PAD.r} y2={PAD.t+iH*(1-f)} stroke="#F0EDE4" strokeWidth="1"/>)}
-        {band&&<path d={band} fill="#C4952A" opacity="0.12"/>}
-        {hPath&&(<><defs><linearGradient id="fcHG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2D6A4F" stopOpacity="0.16"/><stop offset="100%" stopColor="#2D6A4F" stopOpacity="0.01"/></linearGradient></defs><path d={`${hPath} L${hPts[hPts.length-1].x.toFixed(1)},${(PAD.t+iH).toFixed(1)} L${hPts[0].x.toFixed(1)},${(PAD.t+iH).toFixed(1)} Z`} fill="url(#fcHG)"/><path d={hPath} fill="none" stroke="#2D6A4F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></>)}
-        {fPath&&<path d={fPath} fill="none" stroke="#C4952A" strokeWidth="2.5" strokeDasharray="7,4" strokeLinecap="round" strokeLinejoin="round"/>}
-        {hPts.length>0&&<line x1={divX.toFixed(1)} y1={PAD.t} x2={divX.toFixed(1)} y2={(PAD.t+iH).toFixed(1)} stroke="#9BAEA5" strokeWidth="1.5" strokeDasharray="5,4"/>}
-        {hPts.map((p,i)=><circle key={`h${i}`} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="3.5" fill="#2D6A4F" stroke="#fff" strokeWidth="1.5"/>)}
-        {fPts.map((p,i)=><circle key={`f${i}`} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="3.5" fill="#C4952A" stroke="#fff" strokeWidth="1.5"/>)}
-        {all.map((pt,i)=>{if(i%step!==0&&i!==all.length-1)return null;const px=i<historical.length?hPts[i].x:fPts[i-historical.length].x;const isFc=i>=historical.length;return<text key={i} x={px.toFixed(1)} y={H-6} textAnchor="middle" fontSize="9.5" fill={isFc?'#C4952A':'#9BAEA5'} fontFamily="monospace" fontWeight={isFc?'600':'400'}>{pt.label}</text>;})}
-        <text x={PAD.l} y={PAD.t-6} fontSize="9" fill="#2D6A4F" fontFamily="sans-serif" fontWeight="600">Historical</text>
-        {fPts.length>0&&<text x={fPts[0].x.toFixed(1)} y={PAD.t-6} fontSize="9" fill="#C4952A" fontFamily="sans-serif" fontWeight="600">Predicted →</text>}
+        <defs>
+          <linearGradient id="fcHG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2D6A4F" stopOpacity="0.22"/>
+            <stop offset="100%" stopColor="#2D6A4F" stopOpacity="0.01"/>
+          </linearGradient>
+          <linearGradient id="fcLine" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#2D6A4F"/><stop offset="100%" stopColor="#52B788"/>
+          </linearGradient>
+        </defs>
+        {/* gridlines + y labels */}
+        {[0,0.25,0.5,0.75,1].map(f=>(
+          <g key={f}>
+            <line x1={PAD.l} y1={PAD.t+iH*(1-f)} x2={W-PAD.r} y2={PAD.t+iH*(1-f)} stroke="#F0EDE4" strokeWidth="1"/>
+            <text x={PAD.l-8} y={PAD.t+iH*(1-f)+3} textAnchor="end" fontSize="9" fill="#BFCDC7" fontFamily="monospace">{fmtY(maxVal*f)}</text>
+          </g>
+        ))}
+        {band&&<path d={band} fill="#52B788" opacity="0.10"/>}
+        {hPts.length&&<path d={`${hPath} L${hPts[hPts.length-1].x.toFixed(1)},${(PAD.t+iH).toFixed(1)} L${hPts[0].x.toFixed(1)},${(PAD.t+iH).toFixed(1)} Z`} fill="url(#fcHG)"/>}
+        {hPath&&<path d={hPath} fill="none" stroke="url(#fcLine)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>}
+        {fPath&&<path d={fPath} fill="none" stroke="#C4952A" strokeWidth="3" strokeDasharray="2,6" strokeLinecap="round" strokeLinejoin="round"/>}
+        {hPts.length>0&&<line x1={divX.toFixed(1)} y1={PAD.t} x2={divX.toFixed(1)} y2={(PAD.t+iH).toFixed(1)} stroke="#D8E2DC" strokeWidth="1.5" strokeDasharray="4,4"/>}
+        {hPts.map((p,i)=><circle key={`h${i}`} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="3" fill="#2D6A4F" stroke="#fff" strokeWidth="1.5"/>)}
+        {fPts.map((p,i)=><circle key={`f${i}`} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="3.5" fill="#fff" stroke="#C4952A" strokeWidth="2"/>)}
+        {all.map((pt,i)=>{if(i%step!==0&&i!==all.length-1)return null;const px=i<historical.length?hPts[i].x:fPts[i-historical.length].x;const isFc=i>=historical.length;return<text key={i} x={px.toFixed(1)} y={H-8} textAnchor="middle" fontSize="9.5" fill={isFc?'#C4952A':'#9BAEA5'} fontFamily="monospace" fontWeight={isFc?'600':'400'}>{pt.label}</text>;})}
+        <text x={PAD.l} y={PAD.t-8} fontSize="9" fill="#2D6A4F" fontFamily="sans-serif" fontWeight="600">Your emissions</text>
+        {fPts.length>0&&<text x={fPts[0].x.toFixed(1)} y={PAD.t-8} fontSize="9" fill="#C4952A" fontFamily="sans-serif" fontWeight="600">Projected →</text>}
       </svg>
-    </div>
-  );
-}
-
-/* accuracy (%) from out-of-sample MAPE — intuitive & robust on short horizons */
-const accuracyOf = (m) => (m && m.mape != null ? Math.max(0, Math.min(100, Math.round(100 - m.mape))) : 0);
-
-/* ─── Accuracy donut gauge ─── */
-function AccuracyGauge({ pct = 0, color }) {
-  pct = Math.max(0, Math.min(100, Math.round(pct)));
-  const R = 34, C = 2 * Math.PI * R;
-  const off = C - (pct / 100) * C;
-  return (
-    <div className="relative flex items-center justify-center" style={{ width: 92, height: 92 }}>
-      <svg width="92" height="92" viewBox="0 0 92 92">
-        <circle cx="46" cy="46" r={R} fill="none" stroke="#F0EDE4" strokeWidth="8" />
-        <circle cx="46" cy="46" r={R} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
-          strokeDasharray={C} strokeDashoffset={off} transform="rotate(-90 46 46)"
-          style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
-      </svg>
-      <div className="absolute text-center">
-        <p className="text-xl font-bold leading-none" style={{ color: '#1A2118' }}>{pct}%</p>
-        <p className="text-[9px] font-medium" style={{ color: '#9BAEA5' }}>accuracy</p>
-      </div>
     </div>
   );
 }
@@ -144,7 +143,6 @@ export default function CarboncastXPage() {
   const models     = ml?.models || {};
   const bestModel  = bestKey ? models[bestKey] : null;
   const insufficient = payload && (payload.success === false || !bestModel);
-  const bestMeta   = MODEL_META[bestKey] || { name: bestKey, color: '#2D6A4F' };
 
   const histRaw    = payload?.historical || [];
   const chartHist  = histRaw.map(h => ({ actual: h.value, label: monthLabel(h.month) }));
@@ -165,12 +163,8 @@ export default function CarboncastXPage() {
   const endPred    = chartFc.length ? chartFc[chartFc.length - 1].predicted : 0;
   const overallChg = lastHist > 0 ? Math.round(((endPred - lastHist) / lastHist) * 100) : 0;
   const rising     = overallChg > 2, falling = overallChg < -2;
-
-  // XGBoost feature importance (top drivers)
-  const featImp = Object.entries(models?.xgboost?.feature_importance || {})
-    .slice(0, 5)
-    .map(([k, v]) => ({ name: FEATURE_LABELS[k] || k.replace(/_/g, ' '), v }));
-  const featMax = featImp.length ? Math.max(...featImp.map(f => f.v), 0.0001) : 1;
+  const annualFc   = avgFc * 12;          // run-rate annual projection
+  const treesEq    = Math.max(0, Math.round(annualFc / 21)); // ~21 kg CO₂ absorbed per tree/yr
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -192,7 +186,7 @@ export default function CarboncastXPage() {
                   style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}>AI ENGINE</span>
               </h1>
               <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                Multi-model emission forecasting · Prophet · XGBoost · Holt-Winters
+                Smart emission forecasting to guide your climate decisions
               </p>
             </div>
           </div>
@@ -219,7 +213,7 @@ export default function CarboncastXPage() {
       {loading && (
         <div className="flex flex-col items-center justify-center py-24">
           <Loader2 className="h-7 w-7 animate-spin mb-3" style={{ color: '#2D6A4F' }} />
-          <p className="text-sm" style={{ color: '#9BAEA5' }}>Training Prophet · XGBoost · Holt-Winters…</p>
+          <p className="text-sm" style={{ color: '#9BAEA5' }}>Analysing your emission trends…</p>
         </div>
       )}
 
@@ -255,9 +249,8 @@ export default function CarboncastXPage() {
               <div>
                 <p className="text-sm font-bold mb-1" style={{ color: '#1A2118' }}>AI Insight</p>
                 <p className="text-sm leading-relaxed" style={{ color: '#3D5247' }}>
-                  Based on <strong>{chartHist.length} months</strong> of data, <strong>{bestMeta.name}</strong> was
-                  the most accurate model ({accuracyOf(bestModel.metrics)}% accuracy). Over the next{' '}
-                  <strong>{chartFc.length} months</strong> your emissions are projected to{' '}
+                  Based on <strong>{chartHist.length} months</strong> of your activity, emissions over the next{' '}
+                  <strong>{chartFc.length} months</strong> are projected to{' '}
                   {rising ? <span style={{ color: '#DC2626', fontWeight: 600 }}>rise ~{Math.abs(overallChg)}% 📈</span>
                     : falling ? <span style={{ color: '#2D6A4F', fontWeight: 600 }}>fall ~{Math.abs(overallChg)}% 📉</span>
                     : <span style={{ color: '#7A9E8E', fontWeight: 600 }}>stay roughly flat ➡️</span>}
@@ -276,8 +269,8 @@ export default function CarboncastXPage() {
               value={`${fmtKg(avgFc)} kg`} sub={`over ${chartFc.length} months`} />
             <Kpi icon={rising ? TrendingUp : TrendingDown} accent={rising ? '#DC2626' : '#2D6A4F'}
               label="Projected change" value={`${overallChg > 0 ? '+' : ''}${overallChg}%`} sub="end vs now" />
-            <Kpi icon={Award} accent={bestMeta.color} label="Best model"
-              value={bestMeta.name} sub={`RMSE ${Number(bestModel.metrics?.rmse).toFixed(1)}`} />
+            <Kpi icon={CalendarClock} accent="#2D6A4F" label="Annual outlook"
+              value={`${fmtKg(annualFc)} kg`} sub="projected 12-month run-rate" />
           </div>
 
           {/* ── Chart + accuracy ── */}
@@ -286,9 +279,9 @@ export default function CarboncastXPage() {
               <Card className="p-6 h-full">
                 <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                   <div>
-                    <h2 className="text-sm font-semibold" style={{ color:'#1A2118' }}>Historical + Predicted Emissions</h2>
+                    <h2 className="text-sm font-semibold" style={{ color:'#1A2118' }}>Your Emissions Outlook</h2>
                     <p className="text-xs mt-0.5" style={{ color:'#9BAEA5' }}>
-                      kg CO₂e / month · model: <strong style={{ color: bestMeta.color }}>{bestMeta.name}</strong>
+                      kg CO₂e / month · history &amp; projection
                       {payload.cached && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px]" style={{ background:'#F4F6F4', color:'#9BAEA5' }}>cached</span>}
                     </p>
                   </div>
@@ -304,99 +297,46 @@ export default function CarboncastXPage() {
               </Card>
             </motion.div>
 
-            {/* Accuracy + drivers */}
+            {/* What this means for your company */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
               <Card className="p-6 h-full flex flex-col">
-                <div className="flex items-center gap-2 mb-1">
-                  <Gauge className="h-4 w-4" style={{ color: bestMeta.color }} />
-                  <h2 className="text-sm font-semibold" style={{ color:'#1A2118' }}>Model accuracy</h2>
-                </div>
-                <p className="text-[11px] mb-3" style={{ color: '#9BAEA5' }}>
-                  {bestModel.validation === 'holdout'
-                    ? '✓ Validated out-of-sample (holdout backtest)'
-                    : 'In-sample fit (dataset too short to backtest)'}
-                </p>
-                <div className="flex items-center gap-4">
-                  <AccuracyGauge pct={accuracyOf(bestModel.metrics)} color={bestMeta.color} />
-                  <div className="text-xs space-y-1.5">
-                    <div className="flex justify-between gap-4"><span style={{color:'#9BAEA5'}}>RMSE</span><span className="font-semibold" style={{color:'#1A2118'}}>{Number(bestModel.metrics?.rmse).toFixed(1)}</span></div>
-                    <div className="flex justify-between gap-4"><span style={{color:'#9BAEA5'}}>MAE</span><span className="font-semibold" style={{color:'#1A2118'}}>{Number(bestModel.metrics?.mae).toFixed(1)}</span></div>
-                    <div className="flex justify-between gap-4"><span style={{color:'#9BAEA5'}}>MAPE</span><span className="font-semibold" style={{color:'#1A2118'}}>{Number(bestModel.metrics?.mape).toFixed(1)}%</span></div>
-                    <div className="flex justify-between gap-4"><span style={{color:'#9BAEA5'}}>R²</span><span className="font-semibold" style={{color:'#1A2118'}}>{Number(bestModel.metrics?.r2).toFixed(2)}</span></div>
-                  </div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="h-4 w-4" style={{ color: '#C4952A' }} />
+                  <h2 className="text-sm font-semibold" style={{ color:'#1A2118' }}>What this means for you</h2>
                 </div>
 
-                {featImp.length > 0 && (
-                  <div className="mt-5 pt-4" style={{ borderTop: '1px solid #F0EDE4' }}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Zap className="h-3.5 w-3.5" style={{ color: '#C4952A' }} />
-                      <span className="text-xs font-semibold" style={{ color: '#1A2118' }}>Top drivers (XGBoost)</span>
+                {/* Annual run-rate highlight */}
+                <div className="rounded-xl p-4 mb-4" style={{ background: '#EAF4EE', border: '1px solid #C0DDD0' }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#2D6A4F' }}>Projected annual footprint</p>
+                  <p className="text-2xl font-bold mt-1" style={{ color: '#1A2118' }}>{fmtKg(annualFc)} kg CO₂e</p>
+                  <p className="text-[11px] mt-1" style={{ color: '#5A7A6D' }}>
+                    ≈ the carbon <strong>{treesEq.toLocaleString()} trees</strong> absorb in a year 🌳
+                  </p>
+                </div>
+
+                {/* Actionable insights */}
+                <div className="space-y-3">
+                  {[
+                    rising
+                      ? { icon: TrendingUp, c: '#DC2626', t: `Emissions are trending up ~${Math.abs(overallChg)}%. Prioritise your largest source now to bend the curve.` }
+                      : falling
+                      ? { icon: TrendingDown, c: '#2D6A4F', t: `You're on a downward path (~${Math.abs(overallChg)}%). Keep the momentum — lock in these reductions as targets.` }
+                      : { icon: Activity, c: '#7A9E8E', t: 'Emissions are holding steady. A focused reduction goal could turn this flat line into a decline.' },
+                    peak
+                      ? { icon: CalendarClock, c: '#C4952A', t: `Expect a seasonal peak around ${peak.label}. Plan offsets or efficiency measures ahead of it.` }
+                      : null,
+                    { icon: Sparkles, c: '#3B6CA8', t: 'Log more activity each month — richer data sharpens these projections and unlocks better recommendations.' },
+                  ].filter(Boolean).map((ins, i) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: `${ins.c}16` }}>
+                        <ins.icon className="h-3.5 w-3.5" style={{ color: ins.c }} />
+                      </div>
+                      <p className="text-xs leading-relaxed" style={{ color: '#3D5247' }}>{ins.t}</p>
                     </div>
-                    <div className="space-y-2">
-                      {featImp.map((f) => (
-                        <div key={f.name}>
-                          <div className="flex justify-between text-[11px] mb-0.5">
-                            <span style={{ color: '#5A7A6D' }}>{f.name}</span>
-                            <span className="font-mono" style={{ color: '#9BAEA5' }}>{Math.round((f.v / featMax) * 100)}%</span>
-                          </div>
-                          <div className="h-1.5 rounded-full" style={{ background: '#F0EDE4' }}>
-                            <div className="h-full rounded-full" style={{ width: `${(f.v / featMax) * 100}%`, background: '#C4952A' }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </Card>
             </motion.div>
-          </div>
-
-          {/* ── Model comparison ── */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Layers className="h-4 w-4" style={{ color: '#3B6CA8' }} />
-              <h2 className="text-sm font-semibold" style={{ color: '#1A2118' }}>Model leaderboard</h2>
-              <span className="text-[11px]" style={{ color: '#9BAEA5' }}>· lower RMSE = better · winner auto-selected</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {Object.entries(models).map(([key, mdl]) => {
-                const meta = MODEL_META[key] || { name: key, color: '#7A9E8E', blurb: '' };
-                const ok = mdl.status === 'success' && mdl.metrics;
-                const isBest = key === bestKey;
-                const acc = ok ? accuracyOf(mdl.metrics) : 0;
-                return (
-                  <Card key={key} className="p-4" style={isBest ? { border: `2px solid ${meta.color}`, background: `${meta.color}08` } : {}}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: meta.color }} />
-                        <span className="text-sm font-bold" style={{ color: '#1A2118' }}>{meta.name}</span>
-                      </div>
-                      {isBest && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: meta.color, color: '#fff' }}>⭐ BEST</span>}
-                    </div>
-                    <p className="text-[11px] mb-3" style={{ color: '#9BAEA5' }}>{meta.blurb}</p>
-                    {ok ? (
-                      <>
-                        <div className="flex items-end justify-between mb-2">
-                          <div>
-                            <p className="text-2xl font-bold" style={{ color: meta.color }}>{acc}%</p>
-                            <p className="text-[10px]" style={{ color: '#9BAEA5' }}>accuracy (100−MAPE)</p>
-                          </div>
-                          <div className="text-right text-[11px] space-y-0.5">
-                            <p style={{ color: '#5A7A6D' }}>RMSE <span className="font-semibold" style={{ color:'#1A2118' }}>{Number(mdl.metrics.rmse).toFixed(1)}</span></p>
-                            <p style={{ color: '#5A7A6D' }}>MAPE <span className="font-semibold" style={{ color:'#1A2118' }}>{Number(mdl.metrics.mape).toFixed(1)}%</span></p>
-                          </div>
-                        </div>
-                        <div className="h-1.5 rounded-full" style={{ background: '#F0EDE4' }}>
-                          <div className="h-full rounded-full" style={{ width: `${acc}%`, background: meta.color }} />
-                        </div>
-                      </>
-                    ) : (
-                      <p className="text-xs py-3" style={{ color: '#DC2626' }}>⚠ Unavailable for this dataset</p>
-                    )}
-                  </Card>
-                );
-              })}
-            </div>
           </div>
 
           {/* ── Month-by-month cards ── */}

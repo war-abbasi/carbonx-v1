@@ -8,6 +8,7 @@ import { cn }    from '../../lib/utils';
 import { useAuth } from '../../hooks/useAuth';
 import { useApp }  from '../../context/AppContext';
 import { useAuthStore } from '../../store/authStore';
+import { Logo } from '../shared/Logo';
 import iconImg from '../../assets/carbonx-icon.png';
 
 const ALL_NAV = [
@@ -46,10 +47,7 @@ export default function Sidebar() {
         style={{ borderBottom: '1px solid #E5EAE8' }}
       >
         {sidebarOpen ? (
-          <>
-            <img src={iconImg} alt="CarbonX" className="h-7 w-7 object-contain flex-shrink-0" />
-            <span className="font-bold text-base tracking-tight" style={{ color: '#1B4332' }}>CarbonX</span>
-          </>
+          <Logo className="h-9 w-28" />
         ) : (
           <img src={iconImg} alt="CarbonX" className="h-7 w-7 object-contain" />
         )}

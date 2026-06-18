@@ -704,8 +704,44 @@ function GoalsTab() {
   );
 }
 
+/* ─── Markdown → styled HTML for the Sustainability Report ─── */
+function reportToHtml(md) {
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inline = (s) =>
+    esc(s).replace(/\*\*(.*?)\*\*/g, '<strong style="color:#1A2118;font-weight:600">$1</strong>');
+
+  const lines = md.split('\n');
+  let html = '';
+  let inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+
+  lines.forEach((raw) => {
+    const l = raw.trimEnd();
+    if (l.startsWith('# ')) {
+      closeList();
+      html += `<h2 style="color:#1A2118;font-size:22px;font-weight:700;margin:22px 0 6px;padding-bottom:8px;border-bottom:2px solid #EAF4EE">${inline(l.slice(2))}</h2>`;
+    } else if (l.startsWith('## ')) {
+      closeList();
+      html += `<h3 style="color:#2D6A4F;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;margin:18px 0 6px">${inline(l.slice(3))}</h3>`;
+    } else if (l.startsWith('### ')) {
+      closeList();
+      html += `<h4 style="color:#1A2118;font-size:14px;font-weight:600;margin:12px 0 4px">${inline(l.slice(4))}</h4>`;
+    } else if (/^[-*] /.test(l)) {
+      if (!inList) { html += '<ul style="margin:6px 0 6px 4px;padding:0;list-style:none">'; inList = true; }
+      html += `<li style="color:#3D5247;margin:5px 0;padding-left:20px;position:relative;line-height:1.55"><span style="position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:#52B788"></span>${inline(l.slice(2))}</li>`;
+    } else if (l.trim() === '') {
+      closeList();
+    } else {
+      closeList();
+      html += `<p style="color:#3D5247;margin:8px 0;line-height:1.65">${inline(l)}</p>`;
+    }
+  });
+  closeList();
+  return html;
+}
+
 /* ════════════════════════════════════════════════
-   TAB 6 — AI REPORT (admin only)
+   TAB 6 — SUSTAINABILITY REPORT (admin only)
 ════════════════════════════════════════════════ */
 function ReportTab() {
   const [report,  setReport]  = useState('');
@@ -731,7 +767,7 @@ function ReportTab() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `carbonx-report-${new Date().toISOString().slice(0,10)}.md`;
+    a.download = `carbonx-sustainability-report-${new Date().toISOString().slice(0,10)}.md`;
     a.click();
   };
 
@@ -741,12 +777,13 @@ function ReportTab() {
       const doc = new jsPDF({ unit: 'pt', format: 'a4' });
       const margin = 48, maxW = 595 - margin * 2;
       let y = margin;
-      const line = (text, size, color, weight = 'normal', gap = 6) => {
+      const strip = (t) => t.replace(/\*\*(.*?)\*\*/g, '$1');
+      const line = (text, size, color, weight = 'normal', gap = 6, indent = 0) => {
         doc.setFont('helvetica', weight); doc.setFontSize(size); doc.setTextColor(...color);
-        const wrapped = doc.splitTextToSize(text, maxW);
+        const wrapped = doc.splitTextToSize(strip(text), maxW - indent);
         wrapped.forEach((w) => {
           if (y > 800) { doc.addPage(); y = margin; }
-          doc.text(w, margin, y); y += size + gap;
+          doc.text(w, margin + indent, y); y += size + gap;
         });
       };
       // Header band
@@ -757,13 +794,14 @@ function ReportTab() {
       doc.text(`Sustainability Report · ${new Date().toLocaleDateString()}`, margin, 52);
       y = 96;
       report.split('\n').forEach((l) => {
-        if (l.startsWith('# '))       line(l.slice(2), 16, [26, 33, 24], 'bold', 8);
-        else if (l.startsWith('## ')) line(l.slice(3), 13, [26, 33, 24], 'bold', 7);
-        else if (l.startsWith('- '))  line('•  ' + l.slice(2), 10.5, [60, 82, 71], 'normal', 5);
-        else if (l.trim() === '')     { y += 6; }
-        else                          line(l, 10.5, [60, 82, 71], 'normal', 5);
+        if (l.startsWith('# '))        line(l.slice(2), 16, [26, 33, 24], 'bold', 8);
+        else if (l.startsWith('## '))  line(l.slice(3).toUpperCase(), 12, [45, 106, 79], 'bold', 7);
+        else if (l.startsWith('### ')) line(l.slice(4), 11, [26, 33, 24], 'bold', 5);
+        else if (/^[-*] /.test(l))     line('•  ' + l.slice(2), 10.5, [60, 82, 71], 'normal', 5, 10);
+        else if (l.trim() === '')      { y += 6; }
+        else                           line(l, 10.5, [60, 82, 71], 'normal', 5);
       });
-      doc.save(`carbonx-report-${new Date().toISOString().slice(0,10)}.pdf`);
+      doc.save(`carbonx-sustainability-report-${new Date().toISOString().slice(0,10)}.pdf`);
     } catch { toast.error('Could not generate PDF.'); }
   };
 
@@ -772,7 +810,7 @@ function ReportTab() {
       {!report ? (
         <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
           <FileText className="h-12 w-12 mb-4" style={{ color: '#C0DDD0' }} />
-          <h3 className="text-base font-semibold mb-2" style={{ color: '#1A2118' }}>Generate Organization Report</h3>
+          <h3 className="text-base font-semibold mb-2" style={{ color: '#1A2118' }}>Generate Sustainability Report</h3>
           <p className="text-sm max-w-md mb-6" style={{ color: '#9BAEA5' }}>
             Create a professional sustainability report for your organization with AI-powered insights, key findings, and recommendations.
           </p>
@@ -804,18 +842,25 @@ function ReportTab() {
           )}
 
           {/* Report content */}
-          <Card className="p-6">
-            <div className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{
-                __html: report
-                  .split('\n').map(l => {
-                    if (l.startsWith('# ')) return `<h2 style="color:#1A2118;font-size:24px;font-weight:bold;margin:16px 0 8px">${l.slice(2)}</h2>`;
-                    if (l.startsWith('## ')) return `<h3 style="color:#1A2118;font-size:18px;font-weight:bold;margin:12px 0 6px">${l.slice(3)}</h3>`;
-                    if (l.startsWith('- ')) return `<li style="color:#5A7A6D;margin:4px 0 4px 20px">${l.slice(2)}</li>`;
-                    if (l === '') return '<br />';
-                    return `<p style="color:#5A7A6D;margin:8px 0;line-height:1.6">${l}</p>`;
-                  }).join('')
-              }}
+          <Card className="overflow-hidden">
+            {/* Branded header band */}
+            <div className="px-6 py-5 flex items-center justify-between"
+              style={{ background: 'linear-gradient(90deg, #2D6A4F, #52B788)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.18)' }}>
+                  <Leaf className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-base font-bold text-white leading-tight">Sustainability Report</p>
+                  <p className="text-xs" style={{ color: '#E5F3EA' }}>CarbonX · {new Date().toLocaleDateString('en', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full text-white" style={{ background: 'rgba(255,255,255,0.18)' }}>
+                GHG Protocol aligned
+              </span>
+            </div>
+            <div className="px-7 py-6"
+              dangerouslySetInnerHTML={{ __html: reportToHtml(report) }}
             />
           </Card>
 
@@ -856,7 +901,7 @@ export default function InsightsPage() {
     { id: 'goals',           label: 'My Goals',        icon: Lightbulb  },
     ...(isAdmin ? [
       { id: 'offsets', label: 'Offset Projects', icon: Leaf },
-      { id: 'report',  label: 'Org Report',      icon: FileText },
+      { id: 'report',  label: 'Sustainability Report', icon: FileText },
     ] : []),
   ];
 

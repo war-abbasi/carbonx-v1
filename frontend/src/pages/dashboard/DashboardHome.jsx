@@ -5,7 +5,7 @@ import {
   Factory, TrendingDown, TrendingUp, Leaf,
   ArrowRight, Activity, BarChart3, MessageSquare,
   Sparkles, ShieldCheck, ChevronRight, BrainCircuit,
-  Trophy, Lightbulb, TreePine, Car, Zap, Crown, Loader2,
+  Trophy, Lightbulb, TreePine, Car, Zap, Crown, Loader2, Globe,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { carbonApi }    from '../../api/carbonApi';
@@ -16,6 +16,48 @@ const fade = (i = 0) => ({
   animate:  { opacity: 1, y: 0  },
   transition: { duration: 0.45, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] },
 });
+
+/* ── Decorative leaf SVG ── */
+function LeafShape({ size = 26, color = 'rgba(255,255,255,0.5)' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M12 2C7 4 4 8 4 13c0 4 3 8 8 9 0-6 2-11 8-15-3 .5-7 1.5-9 4 .5-3 .5-6 1-9Z" fill={color} />
+      <path d="M12 22c0-6 2-11 8-15" stroke="rgba(255,255,255,0.35)" strokeWidth="0.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/* ── Floating leaves + earth layer for the welcome banner ── */
+const BANNER_LEAVES = [
+  { top: '18%', left: '40%', size: 22, anim: 'animate-leaf-drift-1', delay: '0s',   op: 0.22 },
+  { top: '58%', left: '52%', size: 16, anim: 'animate-leaf-drift-2', delay: '1.5s', op: 0.18 },
+  { top: '30%', left: '66%', size: 28, anim: 'animate-leaf-drift-3', delay: '0.8s', op: 0.20 },
+  { top: '70%', left: '74%', size: 18, anim: 'animate-leaf-drift-2', delay: '3s',   op: 0.16 },
+  { top: '12%', left: '84%', size: 20, anim: 'animate-leaf-drift-1', delay: '2.2s', op: 0.20 },
+  { top: '48%', left: '92%', size: 24, anim: 'animate-leaf-drift-3', delay: '1s',   op: 0.18 },
+];
+
+function BannerNature() {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {/* slowly spinning earth */}
+      <Globe
+        className="absolute animate-spin"
+        style={{ top: '-40px', right: '-30px', width: 190, height: 190, color: 'rgba(255,255,255,0.06)', animationDuration: '40s' }}
+      />
+      <Globe
+        className="absolute animate-leaf-sway"
+        style={{ bottom: '8px', right: '36%', width: 30, height: 30, color: 'rgba(255,255,255,0.14)' }}
+      />
+      {BANNER_LEAVES.map((l, i) => (
+        <div key={i} className={`absolute ${l.anim}`}
+          style={{ top: l.top, left: l.left, animationDelay: l.delay, opacity: l.op }}>
+          <LeafShape size={l.size} />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ── Shared white card ── */
 function Card({ className = '', style = {}, children }) {
@@ -199,6 +241,7 @@ export default function DashboardHome() {
             backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px)',
             backgroundSize: '24px 24px',
           }} />
+          <BannerNature />
           <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium mb-1" style={{ color: 'rgba(255,255,255,0.65)' }}>

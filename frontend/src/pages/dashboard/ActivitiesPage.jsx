@@ -303,7 +303,7 @@ function CarbonCalculator() {
               type="text"
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
-              placeholder="e.g. Drive to Lahore office"
+              placeholder={`Add a note about this ${subOption.label.toLowerCase()} entry`}
               className="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-all"
               style={{ background: '#F8FAF8', border: '1px solid #E5EAE8', color: '#1A2118' }}
               onFocus={(e) => { e.target.style.borderColor = '#2D6A4F'; e.target.style.boxShadow = '0 0 0 3px rgba(45,106,79,0.08)'; }}

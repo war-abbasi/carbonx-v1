@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Building2, Users, CreditCard, Plug, Save,
+  Users, CreditCard,
   CheckCircle, ShieldCheck, ShieldOff, Trash2,
   Loader2, AlertCircle, UserPlus, Upload, Download, X,
   FileText,
@@ -21,79 +21,38 @@ function Card({ className = '', style = {}, children }) {
 }
 
 const TABS = [
-  { id: 'org',          label: 'Organisation', icon: Building2  },
-  { id: 'users',        label: 'Users',         icon: Users      },
-  { id: 'data',         label: 'Data Import',   icon: Upload     },
-  { id: 'billing',      label: 'Billing',       icon: CreditCard },
-  { id: 'integrations', label: 'Integrations',  icon: Plug       },
+  { id: 'org',          label: 'Reporting Standards', icon: FileText   },
+  { id: 'users',        label: 'Users',               icon: Users      },
+  { id: 'data',         label: 'Data Import',         icon: Upload     },
+  { id: 'billing',      label: 'Billing',             icon: CreditCard },
 ];
 
-const INTEGRATIONS = [
-  { name: 'SAP ERP',          desc: 'Connect SAP for automatic activity data import.',       logo: '⚙️',  connected: false },
-  { name: 'Microsoft 365',    desc: 'Import travel and energy data from M365 services.',      logo: '🔷',  connected: false },
-  { name: 'QuickBooks',       desc: 'Link accounting data to estimate supply chain emissions.', logo: '🟢',  connected: false },
-  { name: 'Google Workspace', desc: 'Connect G-Suite for office energy and travel data.',     logo: '🔴',  connected: false },
-  { name: 'AWS / Azure',      desc: 'Measure and track cloud computing carbon footprint.',    logo: '☁️',  connected: false },
-  { name: 'Custom CSV',       desc: 'Upload emission data via standardised CSV templates.',   logo: '📄',  connected: false },
-];
-
-/* ── Org tab ── */
-function OrgTab({ user }) {
-  const [saved, setSaved] = useState(false);
-  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
+/* ── Reporting Standards tab ── */
+function OrgTab() {
+  const STANDARDS = [
+    { std: 'GHG Protocol Corporate Standard', desc: 'The global standard for corporate Scope 1, 2 & 3 accounting.', enabled: true  },
+    { std: 'ISO 14064-1:2018',                 desc: 'International standard for quantifying and reporting GHG emissions.', enabled: true  },
+    { std: 'TCFD Framework',                   desc: 'Climate-related financial risk disclosure recommendations.', enabled: false },
+    { std: 'EU CSRD Directive',                desc: 'EU Corporate Sustainability Reporting Directive.', enabled: false },
+    { std: 'SEC Climate Disclosure Rules',     desc: 'US Securities & Exchange Commission climate disclosure.', enabled: false },
+  ];
 
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-sm font-semibold mb-5" style={{ color: '#1A2118' }}>Organisation Details</h3>
-        <div className="grid sm:grid-cols-2 gap-4">
-          {[
-            { label: 'Organisation Name',  placeholder: 'Your Company Ltd',   id: 'org_name'  },
-            { label: 'Industry',           placeholder: 'e.g. Manufacturing',  id: 'industry'  },
-            { label: 'Headquarters',       placeholder: 'City, Country',       id: 'location'  },
-            { label: 'Annual Revenue (USD)', placeholder: '$0–$10M',           id: 'revenue'   },
-            { label: 'Employees',          placeholder: 'e.g. 50–200',         id: 'employees' },
-            { label: 'Fiscal Year End',    placeholder: 'December 31',         id: 'fy_end'    },
-          ].map((f) => (
-            <div key={f.id}>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#5A7A6D' }}>{f.label}</label>
-              <input
-                type="text"
-                placeholder={f.placeholder}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-all"
-                style={{
-                  background: '#F8FAF8', border: '1px solid #E5EAE8', color: '#1A2118',
-                }}
-                onFocus={(e) => { e.target.style.borderColor = '#2D6A4F'; e.target.style.boxShadow = '0 0 0 3px rgba(45,106,79,0.08)'; }}
-                onBlur={(e)  => { e.target.style.borderColor = '#E5EAE8'; e.target.style.boxShadow = 'none'; }}
-              />
-            </div>
-          ))}
-        </div>
-        <button
-          onClick={handleSave}
-          className="mt-5 flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
-          style={{ background: '#2D6A4F' }}
-        >
-          {saved ? <><CheckCircle className="h-4 w-4" /> Saved!</> : <><Save className="h-4 w-4" /> Save Changes</>}
-        </button>
-      </Card>
-
-      {/* Reporting standards */}
-      <Card className="p-6">
-        <h3 className="text-sm font-semibold mb-4" style={{ color: '#1A2118' }}>Reporting Standards</h3>
-        <div className="space-y-3">
-          {[
-            { std: 'GHG Protocol Corporate Standard', enabled: true  },
-            { std: 'ISO 14064-1:2018',                 enabled: true  },
-            { std: 'TCFD Framework',                   enabled: false },
-            { std: 'EU CSRD Directive',                enabled: false },
-            { std: 'SEC Climate Disclosure Rules',     enabled: false },
-          ].map(({ std, enabled }) => (
-            <div key={std} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid #F0EDE4' }}>
-              <span className="text-sm" style={{ color: '#3D5247' }}>{std}</span>
+        <h3 className="text-sm font-semibold mb-1" style={{ color: '#1A2118' }}>Reporting Standards</h3>
+        <p className="text-xs mb-5" style={{ color: '#9BAEA5' }}>
+          Frameworks your emission reports are aligned with. Active standards are applied to generated reports.
+        </p>
+        <div className="space-y-1">
+          {STANDARDS.map(({ std, desc, enabled }) => (
+            <div key={std} className="flex items-center justify-between gap-4 py-3" style={{ borderBottom: '1px solid #F0EDE4' }}>
+              <div className="min-w-0">
+                <p className="text-sm font-medium" style={{ color: '#1A2118' }}>{std}</p>
+                <p className="text-xs mt-0.5" style={{ color: '#9BAEA5' }}>{desc}</p>
+              </div>
               <span
-                className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                className="text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"
                 style={enabled ? { background: '#EAF4EE', color: '#2D6A4F' } : { background: '#F4F6F4', color: '#9BAEA5' }}
               >
                 {enabled ? 'Active' : 'Inactive'}
@@ -545,45 +504,6 @@ function DataImportTab() {
   );
 }
 
-/* ── Integrations tab ── */
-function IntegrationsTab() {
-  const [connected, setConnected] = useState({});
-
-  return (
-    <div className="space-y-4">
-      <Card className="p-4 flex items-center gap-3" style={{ background: '#FDF5E6', border: '1px solid #F5E3C0' }}>
-        <Plug className="h-4 w-4 flex-shrink-0" style={{ color: '#C4952A' }} />
-        <p className="text-sm" style={{ color: '#7C5A10' }}>
-          Connect a data source to start tracking real emissions. Each integration imports activity data automatically.
-        </p>
-      </Card>
-      <div className="grid sm:grid-cols-2 gap-3">
-        {INTEGRATIONS.map((int) => (
-          <Card key={int.name} className="p-4">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl flex-shrink-0">{int.logo}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold" style={{ color: '#1A2118' }}>{int.name}</p>
-                <p className="text-xs mt-0.5 leading-snug" style={{ color: '#9BAEA5' }}>{int.desc}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setConnected((c) => ({ ...c, [int.name]: !c[int.name] }))}
-              className="mt-3 w-full py-2 rounded-lg text-xs font-semibold transition-all"
-              style={connected[int.name]
-                ? { background: '#EAF4EE', color: '#2D6A4F', border: '1px solid #C0DDD0' }
-                : { background: '#F4F6F4', color: '#5A7A6D', border: '1px solid #E5EAE8' }
-              }
-            >
-              {connected[int.name] ? '✓ Connected' : 'Connect'}
-            </button>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ── Main ── */
 export default function AdminPage() {
   const { user } = useAuthStore();
@@ -593,7 +513,7 @@ export default function AdminPage() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-lg font-bold" style={{ color: '#1A2118' }}>Admin Panel</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#9BAEA5' }}>Organisation settings, users, and integrations</p>
+        <p className="text-sm mt-0.5" style={{ color: '#9BAEA5' }}>Reporting standards, users, data, and billing</p>
       </div>
 
       {/* Tabs */}
@@ -621,11 +541,10 @@ export default function AdminPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        {tab === 'org'          && <OrgTab         user={user} />}
-        {tab === 'users'        && <UsersTab        currentUser={user} />}
-        {tab === 'data'         && <DataImportTab />}
-        {tab === 'billing'      && <BillingTab />}
-        {tab === 'integrations' && <IntegrationsTab />}
+        {tab === 'org'     && <OrgTab />}
+        {tab === 'users'   && <UsersTab currentUser={user} />}
+        {tab === 'data'    && <DataImportTab />}
+        {tab === 'billing' && <BillingTab />}
       </motion.div>
     </div>
   );

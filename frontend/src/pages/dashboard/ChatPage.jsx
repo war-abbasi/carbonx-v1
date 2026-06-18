@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Send, Sparkles, User, Plus, Trash2,
   MessageSquare, ChevronLeft, ChevronRight,
-  Copy, Check, RefreshCw, Pencil, X, Leaf, Loader2,
+  Copy, Check, RefreshCw, Pencil, X, Leaf, Loader2, Sun, Moon,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import iconImg from '../../assets/carbonx-icon.png';
@@ -132,12 +132,12 @@ function ActivityConfirmCard({ card, onConfirm, onDismiss, state }) {
 /* ─── Markdown renderer ───────────────────────── */
 function MsgText({ text }) {
   return (
-    <div className="text-sm leading-relaxed space-y-1" style={{ color: '#3D5247' }}>
+    <div className="text-sm leading-relaxed space-y-1" style={{ color: 'inherit' }}>
       {text.split('\n').map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-1" />;
         const parts    = line.split(/\*\*(.*?)\*\*/g);
         const rendered = parts.map((p, j) =>
-          j % 2 === 1 ? <strong key={j} style={{ color: '#1A2118' }}>{p}</strong> : p
+          j % 2 === 1 ? <strong key={j} style={{ color: 'inherit' }}>{p}</strong> : p
         );
         if (/^[•\-] /.test(line)) {
           return (
@@ -199,6 +199,7 @@ export default function ChatPage() {
   const [editingId,   setEditingId]   = useState(null);
   const [editTitle,   setEditTitle]   = useState('');
   const [apiOk,       setApiOk]       = useState(true);
+  const [dark,        setDark]        = useState(false);
   // activityCards: { [assistantMsgId]: { card, state: 'pending'|'logging'|'confirmed'|'dismissed' } }
   const [activityCards, setActivityCards] = useState({});
 
@@ -405,9 +406,18 @@ export default function ChatPage() {
   ];
 
   /* ═══════════════════ RENDER ════════════════════ */
+  // Local light/dark palette for the chat interface panel
+  const C = dark
+    ? { panel: '#161D16', bar: '#1E261D', border: '#2E3A2C', msgBg: '#12180F',
+        text: '#EAF2E8', sub: '#8FB89E', bubble: '#1E261D', bubbleBorder: '#2E3A2C',
+        inputBg: '#1E261D', strip: '#1A211A' }
+    : { panel: '#ffffff', bar: '#ffffff', border: '#E5EAE8', msgBg: '#F8FAF8',
+        text: '#1A2118', sub: '#7A9E8E', bubble: '#ffffff', bubbleBorder: '#E5EAE8',
+        inputBg: '#ffffff', strip: '#ffffff' };
+
   return (
     <div className="flex rounded-xl overflow-hidden animate-fade-in"
-      style={{ height: 'calc(100vh - 7rem)', border: '1px solid #E5EAE8' }}>
+      style={{ height: 'calc(100vh - 7rem)', border: `1px solid ${C.border}` }}>
 
       {/* ══════════════════════════════════════
           LEFT SIDEBAR
@@ -512,14 +522,14 @@ export default function ChatPage() {
       {/* ══════════════════════════════════════
           RIGHT PANEL — messages
       ══════════════════════════════════════ */}
-      <div className="flex-1 flex flex-col min-w-0" style={{ background: '#ffffff' }}>
+      <div className="flex-1 flex flex-col min-w-0" style={{ background: C.panel }}>
 
         {/* Top bar */}
         <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
-          style={{ borderBottom: '1px solid #E5EAE8', background: '#ffffff' }}>
+          style={{ borderBottom: `1px solid ${C.border}`, background: C.bar }}>
           {!sidebarOpen && (
             <button onClick={() => setSidebarOpen(true)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" style={{ color: '#9BAEA5' }}>
+              className="p-1.5 rounded-lg transition-colors" style={{ color: C.sub }}>
               <ChevronRight className="h-4 w-4" />
             </button>
           )}
@@ -529,23 +539,29 @@ export default function ChatPage() {
               <img src={iconImg} alt="AI" className="h-4 w-4 object-contain" />
             </div>
             <div>
-              <p className="text-sm font-semibold leading-tight" style={{ color: '#1A2118' }}>CarbonX AI</p>
+              <p className="text-sm font-semibold leading-tight" style={{ color: C.text }}>CarbonX AI</p>
               <p className="text-[10px] flex items-center gap-1" style={{ color: apiOk ? '#2D6A4F' : '#C4952A' }}>
                 <span className={`h-1.5 w-1.5 rounded-full ${apiOk ? 'bg-green-400 animate-pulse' : 'bg-amber-400'}`} />
-                {apiOk ? 'LLaMA 3.3 · data-aware · English & Roman Urdu' : 'GROQ_API_KEY not set'}
+                {apiOk ? 'Online · ready to help' : 'GROQ_API_KEY not set'}
               </p>
             </div>
           </div>
+          {/* Light / dark toggle */}
+          <button onClick={() => setDark(v => !v)} title={dark ? 'Switch to light' : 'Switch to dark'}
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:opacity-80"
+            style={{ background: dark ? '#1E261D' : '#F4F6F4', color: dark ? '#F0D879' : '#5A7A6D', border: `1px solid ${C.border}` }}>
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
           <button onClick={newChat}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-            style={{ background: '#F4F6F4', color: '#5A7A6D', border: '1px solid #E5EAE8' }}>
+            style={{ background: dark ? '#1E261D' : '#F4F6F4', color: dark ? '#8FB89E' : '#5A7A6D', border: `1px solid ${C.border}` }}>
             <Plus className="h-3.5 w-3.5" /> New
           </button>
         </div>
 
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
-          style={{ background: '#F8FAF8' }}>
+          style={{ background: C.msgBg }}>
 
           {/* Welcome screen when no active conversation */}
           {!activeId && messages.length === 0 && (
@@ -554,17 +570,17 @@ export default function ChatPage() {
                 style={{ background: '#EAF4EE', border: '2px solid #C0DDD0' }}>
                 <img src={iconImg} alt="" className="h-8 w-8 object-contain" />
               </div>
-              <h2 className="text-lg font-bold mb-2" style={{ color: '#1A2118' }}>CarbonX AI</h2>
-              <p className="text-sm max-w-sm leading-relaxed" style={{ color: '#7A9E8E' }}>
+              <h2 className="text-lg font-bold mb-2" style={{ color: C.text }}>CarbonX AI</h2>
+              <p className="text-sm max-w-sm leading-relaxed" style={{ color: C.sub }}>
                 Your personal carbon management assistant. I know your emission data and can answer in
-                <strong style={{ color: '#2D6A4F' }}> English</strong> or
-                <strong style={{ color: '#2D6A4F' }}> Roman Urdu</strong>.
+                <strong style={{ color: '#52B788' }}> English</strong> or
+                <strong style={{ color: '#52B788' }}> Roman Urdu</strong>.
               </p>
               <div className="mt-6 grid grid-cols-2 gap-2 w-full max-w-md">
                 {QUICK_PROMPTS.map(p => (
                   <button key={p} onClick={() => send(p)}
                     className="text-xs text-left px-3 py-2.5 rounded-xl transition-all hover:opacity-80"
-                    style={{ background: '#fff', border: '1px solid #E5EAE8', color: '#3D5247' }}>
+                    style={{ background: C.bubble, border: `1px solid ${C.bubbleBorder}`, color: dark ? '#CFE0D2' : '#3D5247' }}>
                     {p}
                   </button>
                 ))}
@@ -599,7 +615,7 @@ export default function ChatPage() {
                 <div className={`max-w-[78%] flex flex-col group ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
                   <div className="px-4 py-3 rounded-2xl"
                     style={m.role === 'assistant'
-                      ? { background: '#ffffff', border: '1px solid #E5EAE8', borderBottomLeftRadius: '6px' }
+                      ? { background: C.bubble, border: `1px solid ${C.bubbleBorder}`, borderBottomLeftRadius: '6px', color: C.text }
                       : { background: '#2D6A4F', borderBottomRightRadius: '6px' }}>
                     {m.role === 'assistant' ? (
                       <>
@@ -642,7 +658,7 @@ export default function ChatPage() {
         {/* Quick prompts strip (only when conversation active) */}
         {(activeId || messages.length > 0) && (
           <div className="px-4 py-2 flex gap-2 overflow-x-auto flex-shrink-0"
-            style={{ borderTop: '1px solid #F0EDE4', background: '#ffffff' }}>
+            style={{ borderTop: `1px solid ${C.border}`, background: C.strip }}>
             {QUICK_PROMPTS.slice(0, 4).map(p => (
               <button key={p} onClick={() => send(p)} disabled={streaming}
                 className="text-xs font-medium px-3 py-1.5 rounded-full flex-shrink-0 transition-all hover:opacity-80 disabled:opacity-40"
@@ -655,14 +671,14 @@ export default function ChatPage() {
 
         {/* Input */}
         <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
-          style={{ background: '#ffffff', borderTop: '1px solid #E5EAE8' }}>
+          style={{ background: C.inputBg, borderTop: `1px solid ${C.border}` }}>
           <input ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); }}}
             placeholder="Ask in English or Roman Urdu…"
-            className="flex-1 text-sm outline-none bg-transparent"
-            style={{ color: '#1A2118' }}
+            className="flex-1 text-sm outline-none bg-transparent placeholder:opacity-60"
+            style={{ color: C.text }}
             disabled={streaming} />
           {streaming && (
             <button onClick={() => abortRef.current?.abort()}
