@@ -15,6 +15,8 @@
  */
 
 require('dotenv').config();
+const fs               = require('fs');
+const path             = require('path');
 const bcrypt           = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 const { FACTORS }      = require('../services/carbonService');
@@ -156,12 +158,26 @@ function buildEntries(userId, p) {
   return out;
 }
 
+/* --reset overwrites live data (awards given, users added), so keep a copy of the SQLite file first */
+function backupDatabase() {
+  const url = process.env.DATABASE_URL ?? '';
+  if (!url.startsWith('file:')) return;
+  const dbFile = path.resolve(__dirname, '../prisma', url.slice(5));
+  if (!fs.existsSync(dbFile)) return;
+  const dir = path.join(path.dirname(dbFile), 'backups');
+  fs.mkdirSync(dir, { recursive: true });
+  const dest = path.join(dir, `carbonx-${new Date().toISOString().replace(/[:.]/g, '-')}.db`);
+  fs.copyFileSync(dbFile, dest);
+  console.log(`  Backed up current database to ${path.relative(process.cwd(), dest)}`);
+}
+
 async function main() {
   const existing = await prisma.organization.findUnique({ where: { name: ORG } });
   if (existing && !RESET) {
     console.log(`Organisation "${ORG}" already seeded — skipping (use --reset to re-seed).`);
     return;
   }
+  if (existing) backupDatabase();
 
   await prisma.user.deleteMany({ where: { email: { in: LEGACY_EMAILS } } });
   const org = await prisma.organization.upsert({ where: { name: ORG }, update: {}, create: { name: ORG } });

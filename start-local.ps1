@@ -26,6 +26,7 @@ if (-not (Test-Path node_modules)) { npm install }
 npx prisma db push --skip-generate | Out-Null
 npx prisma generate | Out-Null
 node scripts/seedDemo.js
+node scripts/rollForward.js
 Pop-Location
 
 # 3. Frontend deps

@@ -49,3 +49,4 @@ frontend/.env.local
 backend/prisma/*.db
 backend/prisma/*.db-journal
 ml_service/.venv/
+backend/prisma/backups/

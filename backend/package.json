@@ -14,7 +14,8 @@
     "test": "jest",
     "setup": "prisma db push && node scripts/seedDemo.js",
     "seed": "node scripts/seedDemo.js",
-    "check-ai": "node scripts/checkAI.js"
+    "check-ai": "node scripts/checkAI.js",
+    "roll-forward": "node scripts/rollForward.js"
   },
   "dependencies": {
     "@prisma/client": "^6.16.0",
