@@ -2,11 +2,11 @@ const { prisma }                         = require('../config/db');
 const { successResponse, errorResponse } = require('../utils/response');
 const { CHALLENGES }                     = require('../data/challenges');
 const { OFFSET_PROJECTS }                = require('../data/offsetProjects');
-const Groq                               = require('groq-sdk').default;
+const { llm, MODEL, parseJSON }         = require('../services/llm');
 
 /* ════════════════════════════════════════════════
    PERSONALISED RECOMMENDATIONS
-   AI-powered via Groq LLaMA, driven by real carbon data
+   AI-powered via the local LLM (services/llm.js), driven by real carbon data
 ════════════════════════════════════════════════ */
 async function getRecommendations(req, res, next) {
   try {
@@ -71,18 +71,16 @@ For each recommendation, provide a JSON object with these fields (NO extra text,
 
 Return ONLY a valid JSON array of 3 objects. No explanations, no markdown.`;
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const completion = await groq.chat.completions.create({
-      model:       'llama-3.3-70b-versatile',
-      messages:    [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens:  1500,
-    });
-
     let recs = [];
     try {
+      const completion = await llm.chat.completions.create({
+        model:       MODEL,
+        messages:    [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens:  1500,
+      });
       const aiResponse = completion.choices[0]?.message?.content || '[]';
-      recs = JSON.parse(aiResponse);
+      recs = parseJSON(aiResponse);
       if (!Array.isArray(recs)) recs = [];
       recs = recs.slice(0, 3); // Max 3
     } catch (e) {
@@ -349,15 +347,20 @@ Generate a report with:
 
 Format in markdown. Be specific with numbers and percentages from the data provided.`;
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const completion = await groq.chat.completions.create({
-      model:       'llama-3.3-70b-versatile',
-      messages:    [{ role: 'user', content: prompt }],
-      temperature: 0.8,
-      max_tokens:  1200,
-    });
-
-    const report = completion.choices[0]?.message?.content || '# Report Generation Failed\n\nCould not generate report. Try again.';
+    let report;
+    try {
+      const completion = await llm.chat.completions.create({
+        model:       MODEL,
+        messages:    [{ role: 'user', content: prompt }],
+        temperature: 0.8,
+        max_tokens:  1200,
+      });
+      report = completion.choices[0]?.message?.content;
+    } catch (e) {
+      console.warn('Report LLM call failed, using data-only report', e.message);
+    }
+    /* LLM offline or empty → still give the admin a report built from the numbers */
+    if (!report) report = `# Sustainability Report\n\n## Data Summary\n\n${dataStr}`;
 
     return successResponse(res, {
       report,
@@ -432,18 +435,16 @@ Create 3 reduction goals with:
 Return ONLY a valid JSON array with 3 objects:
 { "period": "3 months", "targetKg": NUMBER, "strategy": "...", "confidence": "High", "rationale": "..." }`;
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const completion = await groq.chat.completions.create({
-      model:       'llama-3.3-70b-versatile',
-      messages:    [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens:  800,
-    });
-
     let goals = [];
     try {
+      const completion = await llm.chat.completions.create({
+        model:       MODEL,
+        messages:    [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens:  800,
+      });
       const aiResponse = completion.choices[0]?.message?.content || '[]';
-      goals = JSON.parse(aiResponse);
+      goals = parseJSON(aiResponse);
       if (!Array.isArray(goals)) goals = [];
       goals = goals.slice(0, 3);
     } catch (e) {
@@ -459,8 +460,8 @@ Return ONLY a valid JSON array with 3 objects:
     // Add context
     goals = goals.map(g => ({
       ...g,
-      targetKg: parseFloat(g.targetKg.toFixed(1)),
-      reduction: parseFloat(((avgMonthly - g.targetKg) / avgMonthly * 100).toFixed(1)),
+      targetKg: parseFloat(Number(g.targetKg).toFixed(1)),
+      reduction: parseFloat(((avgMonthly - Number(g.targetKg)) / avgMonthly * 100).toFixed(1)),
       currentKg: parseFloat(avgMonthly.toFixed(1)),
     }));
 
@@ -545,18 +546,16 @@ Consider:
 Return ONLY a JSON object:
 { "challengeId": "STRING", "reasoning": "Why this challenge will have the most impact for this user" }`;
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const completion = await groq.chat.completions.create({
-      model:       'llama-3.3-70b-versatile',
-      messages:    [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens:  400,
-    });
-
     let suggestion = null;
     try {
+      const completion = await llm.chat.completions.create({
+        model:       MODEL,
+        messages:    [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens:  400,
+      });
       const aiResponse = completion.choices[0]?.message?.content || '{}';
-      const parsed = JSON.parse(aiResponse);
+      const parsed = parseJSON(aiResponse);
       const chal = CHALLENGES.find(c => c.id === parsed.challengeId);
       if (chal) {
         suggestion = {

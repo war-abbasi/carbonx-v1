@@ -43,3 +43,9 @@ Thumbs.db
 # Python
 __pycache__/
 *.pyc
+
+# Local run
+frontend/.env.local
+backend/prisma/*.db
+backend/prisma/*.db-journal
+ml_service/.venv/

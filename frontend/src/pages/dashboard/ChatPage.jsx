@@ -542,7 +542,7 @@ export default function ChatPage() {
               <p className="text-sm font-semibold leading-tight" style={{ color: C.text }}>CarbonX AI</p>
               <p className="text-[10px] flex items-center gap-1" style={{ color: apiOk ? '#2D6A4F' : '#C4952A' }}>
                 <span className={`h-1.5 w-1.5 rounded-full ${apiOk ? 'bg-green-400 animate-pulse' : 'bg-amber-400'}`} />
-                {apiOk ? 'Online · ready to help' : 'GROQ_API_KEY not set'}
+                {apiOk ? 'Online · ready to help' : 'AI offline · set LLM_API_KEY'}
               </p>
             </div>
           </div>

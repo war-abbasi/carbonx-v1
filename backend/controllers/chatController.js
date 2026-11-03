@@ -1,4 +1,4 @@
-const Groq              = require('groq-sdk');
+const { llm, MODEL, FAST_MODEL, isAvailable, parseJSON } = require('../services/llm');
 const { prisma }        = require('../config/db');
 const { errorResponse } = require('../utils/response');
 const { FACTORS }       = require('../services/carbonService');
@@ -10,11 +10,9 @@ const FACTOR_CATALOGUE = Object.entries(FACTORS)
   .join('\n');
 
 async function extractActivity(text) {
-  if (!process.env.GROQ_API_KEY) return null;
   try {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const resp = await groq.chat.completions.create({
-      model:       'llama-3.1-8b-instant',
+    const resp = await llm.chat.completions.create({
+      model:       FAST_MODEL,
       max_tokens:  100,
       temperature: 0,
       messages: [
@@ -147,8 +145,8 @@ async function chat(req, res, next) {
     if (!Array.isArray(messages) || messages.length === 0) {
       return errorResponse(res, 'messages array is required.', 400);
     }
-    if (!process.env.GROQ_API_KEY) {
-      return errorResponse(res, 'GROQ_API_KEY is not set. Add it to Railway environment variables. Free key at console.groq.com', 503);
+    if (!(await isAvailable())) {
+      return errorResponse(res, 'AI is not configured. Set LLM_API_KEY in backend/.env (see LOCAL_SETUP.md) and restart the backend.', 503);
     }
 
     /* Resolve or create conversation */
@@ -207,16 +205,14 @@ async function chat(req, res, next) {
       res.write(`data: ${JSON.stringify({ activityCard })}\n\n`);
     }
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
     /* Last 12 messages as history */
     const history = messages.slice(-12).map(m => ({
       role:    m.role === 'user' ? 'user' : 'assistant',
       content: String(m.text || m.content || ''),
     }));
 
-    const stream = await groq.chat.completions.create({
-      model:       'llama-3.3-70b-versatile',
+    const stream = await llm.chat.completions.create({
+      model:       MODEL,
       max_tokens:  1024,
       temperature: 0.7,
       messages: [{ role: 'system', content: systemPrompt }, ...history],

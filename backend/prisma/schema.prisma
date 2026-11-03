@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -15,7 +15,7 @@ model User {
   name           String
   email          String          @unique
   password       String
-  role           Role            @default(USER)
+  role           String          @default("USER") // USER | ADMIN
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   carbonEntries  CarbonEntry[]
@@ -31,7 +31,7 @@ model Forecast {
   id           Int      @id @default(autoincrement())
   userId       Int
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bestModel    String   @db.VarChar(50)              // prophet | xgboost | holt_winters
+  bestModel    String              // prophet | xgboost | holt_winters
   monthsAhead  Int      @default(12)
   dataPoints   Int      @default(0)                  // # of months the model was trained on
   payload      Json                                  // full ML response (models, metrics, forecast)
@@ -46,10 +46,10 @@ model Goal {
   id           Int       @id @default(autoincrement())
   userId       Int
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title        String    @db.VarChar(150)
+  title        String
   targetKg     Float                                 // monthly CO2e target in kg
-  period       String    @default("monthly") @db.VarChar(20)
-  status       String    @default("active") @db.VarChar(20) // active | achieved | archived
+  period       String    @default("monthly")
+  status       String    @default("active") // active | achieved | archived
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -60,8 +60,8 @@ model Goal {
 model UserChallenge {
   id          Int       @id @default(autoincrement())
   userId      Int
-  challengeId String    @db.VarChar(100)
-  status      String    @default("active") @db.VarChar(20)
+  challengeId String
+  status      String    @default("active")
   startedAt   DateTime  @default(now())
   completedAt DateTime?
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -74,7 +74,7 @@ model Conversation {
   id        Int       @id @default(autoincrement())
   userId    Int
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String    @default("New Chat") @db.VarChar(255)
+  title     String    @default("New Chat")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   messages  Message[]
@@ -86,8 +86,8 @@ model Message {
   id             Int          @id @default(autoincrement())
   conversationId Int
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  role           String       @db.VarChar(20)   // 'user' | 'assistant'
-  content        String       @db.Text
+  role           String   // 'user' | 'assistant'
+  content        String
   createdAt      DateTime     @default(now())
 
   @@map("messages")
@@ -110,7 +110,3 @@ model CarbonEntry {
   @@map("carbon_entries")
 }
 
-enum Role {
-  USER
-  ADMIN
-}
