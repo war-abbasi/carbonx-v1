@@ -17,6 +17,9 @@ export const insightsApi = {
   getSuggestedGoals:   ()   => api.post('/insights/goals', null, SLOW),
   suggestChallenge:    ()   => api.post('/insights/challenge-suggestion', null, SLOW),
 
+  // Points, tiers and badges for the user's organisation
+  getAwards:           ()   => api.get('/insights/awards'),
+
   // ML Forecasting (NEW)
   getForecast:         (months = 12, refresh = false) =>
                          api.get(`/insights/forecast?months=${months}${refresh ? '&refresh=true' : ''}`, SLOW),

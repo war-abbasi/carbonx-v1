@@ -5,7 +5,7 @@ const {
   listChallenges, joinChallenge, completeChallenge, leaveChallenge,
   getOffsetProjects,
   generateReport, getSuggestedGoals, suggestChallenge,
-  getForecast, compareModels, checkMLServiceHealth,
+  getForecast, compareModels, checkMLServiceHealth, getAwards,
 } = require('../controllers/insightsController');
 
 const router = Router();
@@ -22,6 +22,7 @@ router.get('/offset-projects', authorize('ADMIN'), getOffsetProjects);
 router.post('/report', authorize('ADMIN'),  generateReport);
 router.post('/goals',                       getSuggestedGoals);
 router.post('/challenge-suggestion',        suggestChallenge);
+router.get('/awards',                       getAwards);             // points, tiers, badges
 
 /* ML Forecasting endpoints */
 router.get('/forecast',                     getForecast);                    // User forecast

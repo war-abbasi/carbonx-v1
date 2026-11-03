@@ -3,6 +3,7 @@ const { successResponse, errorResponse } = require('../utils/response');
 const { CHALLENGES }                     = require('../data/challenges');
 const { OFFSET_PROJECTS }                = require('../data/offsetProjects');
 const { llm, MODEL, parseJSON }         = require('../services/llm');
+const { getOrgAwards }                  = require('../services/awardsService');
 
 /* ════════════════════════════════════════════════
    PERSONALISED RECOMMENDATIONS
@@ -777,10 +778,22 @@ async function checkMLServiceHealth(req, res, next) {
   }
 }
 
+/* GET /api/insights/awards — points, tiers and badges for everyone in the user's organisation */
+async function getAwards(req, res, next) {
+  try {
+    const data = await getOrgAwards(req.user.organizationId);
+    return successResponse(res, {
+      ...data,
+      organization: req.user.organization?.name ?? null,
+      me: data.rankings.find((r) => r.user.id === req.user.id) ?? null,
+    });
+  } catch (err) { next(err); }
+}
+
 module.exports = {
   getRecommendations,
   listChallenges, joinChallenge, completeChallenge, leaveChallenge,
   getOffsetProjects,
   generateReport, getSuggestedGoals, suggestChallenge,
-  getForecast, compareModels, checkMLServiceHealth,
+  getForecast, compareModels, checkMLServiceHealth, getAwards,
 };

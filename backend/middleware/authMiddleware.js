@@ -15,11 +15,17 @@ async function authenticate(req, res, next) {
     const decoded = verifyToken(token);
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: {
+        id: true, name: true, email: true, role: true, active: true, createdAt: true,
+        organizationId: true, organization: { select: { id: true, name: true } },
+      },
     });
 
     if (!user) {
       return errorResponse(res, 'User not found. Token invalid.', 401);
+    }
+    if (!user.active) {
+      return errorResponse(res, 'Your account has been suspended. Contact your organisation admin.', 401);
     }
 
     req.user = user;

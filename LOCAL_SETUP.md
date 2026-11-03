@@ -25,16 +25,39 @@ powershell -ExecutionPolicy Bypass -File .\start-local.ps1
 This installs any missing dependencies, syncs the database, seeds demo data (only the first time), and opens three
 windows: ML service, backend and frontend. Then open http://localhost:3000.
 
-## Demo accounts
+## Demo organisation: carbonx-team
 
-| Role | Email | Password |
-|---|---|---|
-| Admin | admin@carbonx.com | Admin@CarbonX1 |
-| User | demo@carbonx.com | Demo@CarbonX1 |
-| Employees | employee1..4@carbonx.com | Employee@CarbonX1 |
+| Role | Name | Email | Password |
+|---|---|---|---|
+| Admin | Administrator | warabbasi4@gmail.com | CarbonX@Admin2026 |
+| Students (11) | Wardah Zia Abbasi, Salma Imtiaz, Zoha Latif, Areesha Khawar, Tooba Zainab, Ayesha Shafiq Malik, Mahad Zulfiqar, Tayyaba Zahid, Alishba Amin, Haleema Sadia, Amber Imtiaz | `first.last@carbonx-team.test`, e.g. `wardah.abbasi@carbonx-team.test` (Ayesha is `ayesha.malik@…`) | CarbonX@Student1 |
 
-Each account has 18 months of realistic Pakistan-context entries, with summer AC and winter gas seasonality, so
-CarboncastX forecasts and Analytics have data to show. To re-seed from scratch, run `cd backend; node scripts/seedDemo.js --reset`.
+Each student has the last 60 days of logs that match their story. Wardah and Salma drive (Wardah starts carpooling
+partway through). Zoha lives in the hostel and goes home by intercity bus every other weekend. Everyone else takes
+the university van or bus, with some ride-share, and Alishba mostly walks. Students have joined and completed
+challenges, and three already have admin awards.
+
+To re-seed from scratch (this also resets the 60-day window to end today), run `cd backend; node scripts/seedDemo.js --reset`.
+Do this on the morning of a demo held on a later day.
+
+## Admin: managing users and awards (Admin Panel → Users)
+- **Add member**: creates an account in the admin's organisation.
+- **Award** (medal icon): gives a named award with points and a reason. The student sees it under Activities → Awards.
+- **Suspend / reactivate**: a suspended user cannot log in.
+- **Make / remove admin**, **Delete**.
+- New sign-ups automatically join `DEFAULT_ORGANIZATION` (carbonx-team).
+
+## How awards are calculated (last 60 days, `backend/services/awardsService.js`)
+| Source | Points |
+|---|---|
+| Low footprint | 0–200: the lowest CO₂e in the organisation gets 200, the highest gets 0 |
+| Improvement | 5 per % cut in the last 30 days vs the 30 before, max 150 |
+| Consistency | 2 per day with a logged entry, max 100 |
+| Challenges | 50 + kg saved per completed challenge, 10 per active one |
+| Admin awards | The points the admin attached |
+
+Tiers: Bronze 0+, Silver 180+, Gold 300+, Platinum 450+. Automatic badges: Eco Champion (rank 1), Lowest Footprint,
+Most Improved, Challenge Master / Finisher, Green Commuter (no car or taxi trips), Consistent Logger (45+ days).
 
 ## Notes
 - The first forecast per user takes about 10–15 s (it trains Prophet, XGBoost and Holt-Winters). After that it is cached for 24 h.

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import {
   Users, CreditCard,
   CheckCircle, ShieldCheck, ShieldOff, Trash2,
   Loader2, AlertCircle, UserPlus, Upload, Download, X,
-  FileText,
+  FileText, Award, UserX, UserCheck, Building2,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { adminApi }     from '../../api/adminApi';
@@ -21,8 +22,8 @@ function Card({ className = '', style = {}, children }) {
 }
 
 const TABS = [
-  { id: 'org',          label: 'Reporting Standards', icon: FileText   },
   { id: 'users',        label: 'Users',               icon: Users      },
+  { id: 'org',          label: 'Reporting Standards', icon: FileText   },
   { id: 'data',         label: 'Data Import',         icon: Upload     },
   { id: 'billing',      label: 'Billing',             icon: CreditCard },
 ];
@@ -65,18 +66,184 @@ function OrgTab() {
   );
 }
 
+/* ── Shared modal shell (portalled: the tab wrapper's transform would offset position:fixed) ── */
+function Modal({ title, subtitle, onClose, children }) {
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <motion.div initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{ background: '#fff', border: '1px solid #E5EAE8', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div className="flex items-center justify-between px-6 py-4"
+          style={{ borderBottom: '1px solid #E5EAE8', background: '#F8FAF8' }}>
+          <div>
+            <h2 className="text-sm font-bold" style={{ color: '#1A2118' }}>{title}</h2>
+            {subtitle && <p className="text-xs mt-0.5" style={{ color: '#9BAEA5' }}>{subtitle}</p>}
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100" style={{ color: '#9BAEA5' }}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
+      </motion.div>
+    </div>,
+    document.body,
+  );
+}
+
+const FIELD_STYLE = { background: '#F8FAF8', border: '1px solid #E5EAE8', color: '#1A2118' };
+
+function Field({ label, children }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold mb-1.5 block" style={{ color: '#3D5247' }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+/* ── Add member modal ── */
+function AddUserModal({ orgName, onClose, onCreated }) {
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'USER' });
+  const [saving, setSaving] = useState(false);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { data } = await adminApi.createUser(form);
+      toast.success(data.message);
+      onCreated();
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? 'Could not add user.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Add member" subtitle={orgName ? `Joins ${orgName}` : undefined} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Full name">
+          <input required minLength={2} value={form.name} onChange={set('name')}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={FIELD_STYLE} />
+        </Field>
+        <Field label="Email">
+          <input required type="email" value={form.email} onChange={set('email')}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={FIELD_STYLE} />
+        </Field>
+        <Field label="Temporary password">
+          <input required minLength={8} type="text" value={form.password} onChange={set('password')}
+            placeholder="At least 8 characters"
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={FIELD_STYLE} />
+        </Field>
+        <Field label="Role">
+          <select value={form.role} onChange={set('role')}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={FIELD_STYLE}>
+            <option value="USER">Member</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+        </Field>
+        <button type="submit" disabled={saving}
+          className="w-full py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+          style={{ background: '#2D6A4F', color: '#fff' }}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />} Add member
+        </button>
+      </form>
+    </Modal>
+  );
+}
+
+/* ── Give award modal ── */
+const AWARD_PRESETS = [
+  { icon: '🌍', title: 'Sustainability Ambassador', points: 75 },
+  { icon: '🚗', title: 'Carpool Organiser',         points: 50 },
+  { icon: '♻️', title: 'Recycling Hero',            points: 50 },
+  { icon: '💡', title: 'Energy Saver',              points: 40 },
+  { icon: '🌟', title: 'Monthly Star',              points: 100 },
+];
+
+function AwardModal({ user, onClose, onAwarded }) {
+  const [form, setForm] = useState({ ...AWARD_PRESETS[0], reason: '' });
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { data } = await adminApi.giveAward(user.id, form);
+      toast.success(data.message);
+      onAwarded();
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? 'Could not give award.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={`Award ${user.name}`} subtitle="Recognition shows on their profile and adds to their points" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-5 gap-2">
+          {AWARD_PRESETS.map((p) => (
+            <button type="button" key={p.title} title={p.title}
+              onClick={() => setForm((f) => ({ ...f, ...p }))}
+              className="aspect-square rounded-xl text-2xl flex items-center justify-center transition-all"
+              style={form.title === p.title
+                ? { background: '#EAF4EE', border: '2px solid #2D6A4F' }
+                : { background: '#F8FAF8', border: '1px solid #E5EAE8' }}>
+              {p.icon}
+            </button>
+          ))}
+        </div>
+        <Field label="Award title">
+          <input required minLength={3} value={form.title}
+            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={FIELD_STYLE} />
+        </Field>
+        <Field label="Points">
+          <input type="number" min={0} max={500} value={form.points}
+            onChange={(e) => setForm((f) => ({ ...f, points: e.target.value }))}
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={FIELD_STYLE} />
+        </Field>
+        <Field label="Reason (optional)">
+          <textarea rows={2} value={form.reason} maxLength={200}
+            onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
+            placeholder="What did they do?"
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none" style={FIELD_STYLE} />
+        </Field>
+        <button type="submit" disabled={saving}
+          className="w-full py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+          style={{ background: '#C4952A', color: '#fff' }}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Award className="h-4 w-4" />} Give award
+        </button>
+      </form>
+    </Modal>
+  );
+}
+
+const TIER_COLORS = { Platinum: '#5B7C99', Gold: '#C4952A', Silver: '#8B9E95', Bronze: '#CD7F32' };
+
 /* ── Users tab (live data) ── */
 function UsersTab({ currentUser }) {
-  const [users,    setUsers]   = useState([]);
-  const [loading,  setLoading] = useState(true);
-  const [error,    setError]   = useState('');
+  const [users,    setUsers]    = useState([]);
+  const [org,      setOrg]      = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState('');
   const [updating, setUpdating] = useState(null); // userId being updated
+  const [adding,   setAdding]   = useState(false);
+  const [awarding, setAwarding] = useState(null); // user being awarded
 
   const fetchUsers = useCallback(async () => {
     try {
       setError('');
-      const { data } = await adminApi.listUsers();
-      setUsers(data.data ?? []);
+      const [{ data: u }, { data: o }] = await Promise.all([adminApi.listUsers(), adminApi.getOrganization()]);
+      setUsers(u.data ?? []);
+      setOrg(o.data ?? null);
     } catch (e) {
       setError(e?.response?.data?.message ?? 'Failed to load users.');
     } finally {
@@ -86,151 +253,209 @@ function UsersTab({ currentUser }) {
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  const toggleRole = async (u) => {
-    const newRole = u.role === 'ADMIN' ? 'USER' : 'ADMIN';
+  const run = async (u, fn) => {
     setUpdating(u.id);
     try {
-      await adminApi.updateRole(u.id, newRole);
-      setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, role: newRole } : x));
+      const { data } = await fn();
+      if (data?.message) toast.success(data.message);
+      await fetchUsers();
     } catch (e) {
-      setError(e?.response?.data?.message ?? 'Failed to update role.');
+      setError(e?.response?.data?.message ?? 'Action failed.');
     } finally {
       setUpdating(null);
     }
   };
 
-  const removeUser = async (u) => {
-    if (!window.confirm(`Remove ${u.name}? This cannot be undone.`)) return;
-    setUpdating(u.id);
-    try {
-      await adminApi.deleteUser(u.id);
-      setUsers((prev) => prev.filter((x) => x.id !== u.id));
-    } catch (e) {
-      setError(e?.response?.data?.message ?? 'Failed to delete user.');
-    } finally {
-      setUpdating(null);
-    }
+  const toggleRole   = (u) => run(u, () => adminApi.updateRole(u.id, u.role === 'ADMIN' ? 'USER' : 'ADMIN'));
+  const toggleActive = (u) => {
+    if (u.active && !window.confirm(`Suspend ${u.name}? They will not be able to log in.`)) return;
+    run(u, () => adminApi.updateStatus(u.id, !u.active));
   };
+  const removeUser = (u) => {
+    if (!window.confirm(`Remove ${u.name}? This cannot be undone.`)) return;
+    run(u, () => adminApi.deleteUser(u.id));
+  };
+
+  const orgName = org?.organization?.name;
 
   return (
-    <Card>
-      <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E5EAE8' }}>
-        <div>
-          <h3 className="text-sm font-semibold" style={{ color: '#1A2118' }}>Team Members</h3>
-          <p className="text-xs mt-0.5" style={{ color: '#9BAEA5' }}>{users.length} account{users.length !== 1 ? 's' : ''}</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg" style={{ background: '#F4F6F4', color: '#9BAEA5', border: '1px solid #E5EAE8' }}>
-          <UserPlus className="h-3.5 w-3.5" /> Invite coming soon
-        </div>
-      </div>
-
-      {error && (
-        <div className="mx-5 mt-4 px-3 py-2 rounded-lg flex items-center gap-2 text-xs"
-          style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
-          <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" /> {error}
-        </div>
+    <div className="space-y-4">
+      {/* Organisation summary */}
+      {org && (
+        <Card className="p-5 flex flex-wrap items-center gap-5">
+          <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: '#EAF4EE' }}>
+              <Building2 className="h-5 w-5" style={{ color: '#2D6A4F' }} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#9BAEA5' }}>Organisation</p>
+              <p className="text-base font-bold" style={{ color: '#1A2118' }}>{orgName ?? 'Unassigned users'}</p>
+            </div>
+          </div>
+          {[
+            ['Members',   org.members],
+            ['Admins',    org.admins],
+            ['Suspended', org.suspended],
+          ].map(([label, value]) => (
+            <div key={label} className="text-center px-3">
+              <p className="text-xl font-bold" style={{ color: '#1A2118' }}>{value}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#9BAEA5' }}>{label}</p>
+            </div>
+          ))}
+        </Card>
       )}
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#9BAEA5' }} />
+      <Card>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E5EAE8' }}>
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: '#1A2118' }}>Team Members</h3>
+            <p className="text-xs mt-0.5" style={{ color: '#9BAEA5' }}>
+              {users.length} account{users.length !== 1 ? 's' : ''} · ranked by award points over the last 60 days
+            </p>
+          </div>
+          <button onClick={() => setAdding(true)}
+            className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg transition-all hover:opacity-90"
+            style={{ background: '#2D6A4F', color: '#fff' }}>
+            <UserPlus className="h-3.5 w-3.5" /> Add member
+          </button>
         </div>
-      ) : (
-        <>
-          {/* Column headers */}
-          <div className="grid grid-cols-12 gap-2 px-6 py-2 text-[10px] font-bold uppercase tracking-wider"
-            style={{ borderBottom: '1px solid #F0EDE4', color: '#9BAEA5' }}>
-            <div className="col-span-5">User</div>
-            <div className="col-span-2 hidden sm:block text-right">Entries</div>
-            <div className="col-span-2 hidden sm:block text-right">CO₂ (kg)</div>
-            <div className="col-span-2 text-center">Role</div>
-            <div className="col-span-1"></div>
+
+        {error && (
+          <div className="mx-5 mt-4 px-3 py-2 rounded-lg flex items-center gap-2 text-xs"
+            style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+            <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" /> {error}
           </div>
+        )}
 
-          <div className="divide-y" style={{ borderColor: '#F0EDE4' }}>
-            {users.map((u) => {
-              const isMe   = u.id === currentUser?.id;
-              const busy   = updating === u.id;
-              return (
-                <div key={u.id} className="grid grid-cols-12 gap-2 items-center px-6 py-3.5"
-                  style={{ background: isMe ? '#F8FAF8' : 'transparent' }}>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#9BAEA5' }} />
+          </div>
+        ) : (
+          <>
+            {/* Column headers */}
+            <div className="grid grid-cols-12 gap-2 px-6 py-2 text-[10px] font-bold uppercase tracking-wider"
+              style={{ borderBottom: '1px solid #F0EDE4', color: '#9BAEA5' }}>
+              <div className="col-span-7 sm:col-span-4">User</div>
+              <div className="col-span-2 hidden sm:block">Points</div>
+              <div className="col-span-2 hidden md:block">Badges</div>
+              <div className="col-span-1 hidden sm:block text-right">CO₂ (kg)</div>
+              <div className="col-span-2 sm:col-span-1 text-center">Status</div>
+              <div className="col-span-3 sm:col-span-2"></div>
+            </div>
 
-                  {/* Avatar + name */}
-                  <div className="col-span-5 flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
-                      style={{ background: u.role === 'ADMIN' ? '#2D6A4F' : '#8B9E95' }}>
-                      {getInitials(u.name)}
+            <div className="divide-y" style={{ borderColor: '#F0EDE4' }}>
+              {[...users].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999)).map((u) => {
+                const isMe = u.id === currentUser?.id;
+                const busy = updating === u.id;
+                return (
+                  <div key={u.id} className="grid grid-cols-12 gap-2 items-center px-6 py-3.5"
+                    style={{ background: isMe ? '#F8FAF8' : 'transparent', opacity: u.active ? 1 : 0.55 }}>
+
+                    {/* Avatar + name */}
+                    <div className="col-span-7 sm:col-span-4 flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
+                        style={{ background: u.role === 'ADMIN' ? '#2D6A4F' : '#8B9E95' }}>
+                        {getInitials(u.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate" style={{ color: '#1A2118' }}>
+                          {u.rank && <span className="text-xs mr-1.5" style={{ color: '#9BAEA5' }}>#{u.rank}</span>}
+                          {u.name}{isMe && <span className="text-[10px] font-normal ml-1.5" style={{ color: '#2D6A4F' }}>(you)</span>}
+                        </p>
+                        <p className="text-xs truncate" style={{ color: '#9BAEA5' }}>{u.email}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate" style={{ color: '#1A2118' }}>
-                        {u.name}{isMe && <span className="text-[10px] font-normal ml-1.5" style={{ color: '#2D6A4F' }}>(you)</span>}
-                      </p>
-                      <p className="text-xs truncate" style={{ color: '#9BAEA5' }}>{u.email}</p>
+
+                    {/* Points + tier */}
+                    <div className="col-span-2 hidden sm:block">
+                      {u.points != null ? (
+                        <>
+                          <p className="text-sm font-bold" style={{ color: '#1A2118' }}>{u.points}</p>
+                          <p className="text-[10px] font-bold" style={{ color: TIER_COLORS[u.tier] ?? '#9BAEA5' }}>{u.tier}</p>
+                        </>
+                      ) : <span className="text-xs" style={{ color: '#C5D0CA' }}>{u.role === 'ADMIN' ? 'Admin' : '—'}</span>}
+                    </div>
+
+                    {/* Badges */}
+                    <div className="col-span-2 hidden md:flex flex-wrap gap-0.5">
+                      {u.badges.slice(0, 6).map((b) => (
+                        <span key={b.title} title={`${b.title}${b.reason ? ` — ${b.reason}` : ''}`} className="text-base leading-none">{b.icon}</span>
+                      ))}
+                    </div>
+
+                    {/* Carbon total */}
+                    <div className="col-span-1 text-right hidden sm:block">
+                      <span className="text-xs font-semibold" style={{ color: '#3D5247' }}>{u.totalKg}</span>
+                    </div>
+
+                    {/* Role / status */}
+                    <div className="col-span-2 sm:col-span-1 flex flex-col items-center gap-1">
+                      {u.role === 'ADMIN' && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#EAF4EE', color: '#2D6A4F' }}>ADMIN</span>
+                      )}
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                        style={u.active
+                          ? { background: '#F4F6F4', color: '#5A7A6D', border: '1px solid #E5EAE8' }
+                          : { background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+                        {u.active ? 'Active' : 'Suspended'}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="col-span-3 sm:col-span-2 flex items-center justify-end gap-0.5">
+                      {busy && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" style={{ color: '#9BAEA5' }} />}
+                      {!isMe && (
+                        <>
+                          {u.role !== 'ADMIN' && (
+                            <button onClick={() => setAwarding(u)} disabled={busy || !u.active} title="Give award"
+                              className="p-1.5 rounded-lg transition-colors hover:bg-amber-50 disabled:opacity-40" style={{ color: '#C4952A' }}>
+                              <Award className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button onClick={() => toggleActive(u)} disabled={busy}
+                            title={u.active ? 'Suspend account' : 'Reactivate account'}
+                            className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 disabled:opacity-40"
+                            style={{ color: u.active ? '#E07020' : '#2D6A4F' }}>
+                            {u.active ? <UserX className="h-3.5 w-3.5" /> : <UserCheck className="h-3.5 w-3.5" />}
+                          </button>
+                          <button onClick={() => toggleRole(u)} disabled={busy}
+                            title={u.role === 'ADMIN' ? 'Remove admin' : 'Make admin'}
+                            className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 disabled:opacity-40"
+                            style={{ color: u.role === 'ADMIN' ? '#C4952A' : '#2D6A4F' }}>
+                            {u.role === 'ADMIN' ? <ShieldOff className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                          </button>
+                          <button onClick={() => removeUser(u)} disabled={busy} title="Delete user"
+                            className="p-1.5 rounded-lg transition-colors hover:bg-red-50 disabled:opacity-40" style={{ color: '#DC2626' }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
+                );
+              })}
+            </div>
 
-                  {/* Entries */}
-                  <div className="col-span-2 text-right hidden sm:block">
-                    <span className="text-xs" style={{ color: '#7A9E8E' }}>{u.entryCount}</span>
-                  </div>
+            <div className="px-6 py-3 text-xs flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: '1px solid #E5EAE8', color: '#9BAEA5' }}>
+              <span><Award className="h-3 w-3 inline mr-1" style={{ color: '#C4952A' }} />Give award</span>
+              <span><UserX className="h-3 w-3 inline mr-1" style={{ color: '#E07020' }} />Suspend / reactivate</span>
+              <span><ShieldCheck className="h-3 w-3 inline mr-1" style={{ color: '#2D6A4F' }} />Make or remove admin</span>
+              <span><Trash2 className="h-3 w-3 inline mr-1" style={{ color: '#DC2626' }} />Delete</span>
+            </div>
+          </>
+        )}
+      </Card>
 
-                  {/* Carbon total */}
-                  <div className="col-span-2 text-right hidden sm:block">
-                    <span className="text-xs font-semibold" style={{ color: '#3D5247' }}>{u.totalKg}</span>
-                  </div>
-
-                  {/* Role badge */}
-                  <div className="col-span-2 flex justify-center">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                      style={u.role === 'ADMIN'
-                        ? { background: '#EAF4EE', color: '#2D6A4F' }
-                        : { background: '#F4F6F4', color: '#9BAEA5', border: '1px solid #E5EAE8' }}>
-                      {u.role}
-                    </span>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="col-span-1 flex items-center justify-end gap-1">
-                    {!isMe && (
-                      <>
-                        <button
-                          onClick={() => toggleRole(u)}
-                          disabled={busy}
-                          title={u.role === 'ADMIN' ? 'Remove admin' : 'Make admin'}
-                          className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 disabled:opacity-40"
-                          style={{ color: u.role === 'ADMIN' ? '#C4952A' : '#2D6A4F' }}>
-                          {busy
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : u.role === 'ADMIN'
-                              ? <ShieldOff className="h-3.5 w-3.5" />
-                              : <ShieldCheck className="h-3.5 w-3.5" />
-                          }
-                        </button>
-                        <button
-                          onClick={() => removeUser(u)}
-                          disabled={busy}
-                          title="Delete user"
-                          className="p-1.5 rounded-lg transition-colors hover:bg-red-50 disabled:opacity-40"
-                          style={{ color: '#DC2626' }}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="px-6 py-3 text-xs" style={{ borderTop: '1px solid #E5EAE8', color: '#9BAEA5' }}>
-            <ShieldCheck className="h-3 w-3 inline mr-1" style={{ color: '#2D6A4F' }} />
-            Shield icon = promote to Admin &nbsp;·&nbsp;
-            <ShieldOff className="h-3 w-3 inline mr-1" style={{ color: '#C4952A' }} />
-            Outline = remove Admin role
-          </div>
-        </>
+      {adding && (
+        <AddUserModal orgName={orgName} onClose={() => setAdding(false)}
+          onCreated={() => { setAdding(false); fetchUsers(); }} />
       )}
-    </Card>
+      {awarding && (
+        <AwardModal user={awarding} onClose={() => setAwarding(null)}
+          onAwarded={() => { setAwarding(null); fetchUsers(); }} />
+      )}
+    </div>
   );
 }
 
@@ -507,13 +732,13 @@ function DataImportTab() {
 /* ── Main ── */
 export default function AdminPage() {
   const { user } = useAuthStore();
-  const [tab, setTab] = useState('org');
+  const [tab, setTab] = useState('users');
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-lg font-bold" style={{ color: '#1A2118' }}>Admin Panel</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#9BAEA5' }}>Reporting standards, users, data, and billing</p>
+        <p className="text-sm mt-0.5" style={{ color: '#9BAEA5' }}>Manage your organisation's members, awards, data and reporting</p>
       </div>
 
       {/* Tabs */}

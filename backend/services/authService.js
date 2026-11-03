@@ -14,9 +14,17 @@ async function registerUser({ name, email, password }) {
 
   const hashedPassword = await bcrypt.hash(password, 12);
 
+  /* New sign-ups join the default organisation (if configured) so its admin can manage them */
+  const defaultOrg = process.env.DEFAULT_ORGANIZATION
+    ? await prisma.organization.findUnique({ where: { name: process.env.DEFAULT_ORGANIZATION } })
+    : null;
+
   const user = await prisma.user.create({
-    data: { name: name.trim(), email: normalizedEmail, password: hashedPassword },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    data: { name: name.trim(), email: normalizedEmail, password: hashedPassword, organizationId: defaultOrg?.id ?? null },
+    select: {
+      id: true, name: true, email: true, role: true, createdAt: true,
+      organizationId: true, organization: { select: { id: true, name: true } },
+    },
   });
 
   const token = generateToken({ id: user.id, email: user.email, role: user.role });
@@ -26,7 +34,10 @@ async function registerUser({ name, email, password }) {
 async function loginUser({ email, password }) {
   const normalizedEmail = email.trim().toLowerCase();
 
-  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  const user = await prisma.user.findUnique({
+    where:   { email: normalizedEmail },
+    include: { organization: { select: { id: true, name: true } } },
+  });
   if (!user) {
     const err = new Error('Invalid email or password.');
     err.statusCode = 401;
@@ -37,6 +48,12 @@ async function loginUser({ email, password }) {
   if (!isMatch) {
     const err = new Error('Invalid email or password.');
     err.statusCode = 401;
+    throw err;
+  }
+
+  if (!user.active) {
+    const err = new Error('Your account has been suspended. Contact your organisation admin.');
+    err.statusCode = 403;
     throw err;
   }
 

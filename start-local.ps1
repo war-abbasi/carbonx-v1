@@ -44,5 +44,5 @@ Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$root\backend
 Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$root\frontend'; npm run dev"
 
 Write-Host "`nCarbonX is starting. Open http://localhost:3000" -ForegroundColor Green
-Write-Host "  Admin: admin@carbonx.com / Admin@CarbonX1"
-Write-Host "  User:  demo@carbonx.com  / Demo@CarbonX1`n"
+Write-Host "  Admin:    warabbasi4@gmail.com (password in LOCAL_SETUP.md)"
+Write-Host "  Students: first.last@carbonx-team.test`n"

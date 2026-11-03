@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calculator, Trophy,
   CheckCircle, ChevronDown, Loader2, Send, Medal, Crown,
-  Pencil, Trash2, X,
+  Pencil, Trash2, X, Award,
 } from 'lucide-react';
 import { carbonApi } from '../../api/carbonApi';
+import { insightsApi } from '../../api/insightsApi';
 import { useAuthStore } from '../../store/authStore';
 import { getInitials } from '../../utils/helpers';
 
@@ -593,11 +594,202 @@ function Leaderboard() {
 }
 
 /* ═══════════════════════════════════════════════════
+   TAB 3 — AWARDS (points, tiers, badges)
+═══════════════════════════════════════════════════ */
+const POINT_SOURCES = [
+  { key: 'footprint',   label: 'Low footprint',  max: 200, color: '#2D6A4F', desc: 'Lowest CO₂e in your team earns 200' },
+  { key: 'improvement', label: 'Improvement',    max: 150, color: '#52B788', desc: '5 pts per % cut vs the previous 30 days' },
+  { key: 'consistency', label: 'Consistency',    max: 100, color: '#5B7C99', desc: '2 pts per day you log activity' },
+  { key: 'challenges',  label: 'Challenges',     max: null, color: '#C4952A', desc: '50 + kg saved per completed challenge' },
+  { key: 'adminAwards', label: 'Admin awards',   max: null, color: '#E07020', desc: 'Recognition given by your admin' },
+];
+
+function TierPill({ tier }) {
+  if (!tier) return null;
+  return (
+    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+      style={{ background: `${tier.color}1A`, color: tier.color, border: `1px solid ${tier.color}40` }}>
+      {tier.name}
+    </span>
+  );
+}
+
+function AwardsBoard() {
+  const [data,    setData]    = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [open,    setOpen]    = useState(null); // expanded user id
+
+  useEffect(() => {
+    insightsApi.getAwards()
+      .then(({ data: res }) => setData(res.data))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#9BAEA5' }} />
+      </div>
+    );
+  }
+  if (!data?.rankings?.length) {
+    return (
+      <Card className="py-16 text-center px-6">
+        <Award className="h-10 w-10 mx-auto mb-3" style={{ color: '#D1D9D5' }} />
+        <p className="text-sm font-semibold" style={{ color: '#3D5247' }}>No awards yet</p>
+        <p className="text-xs mt-1" style={{ color: '#9BAEA5' }}>Log activities and complete challenges to start earning points.</p>
+      </Card>
+    );
+  }
+
+  const { me, rankings, organization, periodDays } = data;
+
+  return (
+    <div className="space-y-4">
+      {/* My standing */}
+      {me && (
+        <div className="rounded-xl p-5" style={{ background: 'linear-gradient(135deg, #1B4332, #2D6A4F)' }}>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-[180px]">
+              <Trophy className="h-7 w-7 text-yellow-400 flex-shrink-0" />
+              <div>
+                <p className="text-white font-semibold text-sm">Your awards · {organization}</p>
+                <p className="text-white/70 text-xs">#{me.rank} of {rankings.length} · last {periodDays} days</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-white font-bold text-3xl leading-none">{me.points}</p>
+              <p className="text-xs font-bold mt-1" style={{ color: '#F4D58D' }}>{me.tier?.name} tier</p>
+            </div>
+          </div>
+
+          {/* Breakdown */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-4">
+            {POINT_SOURCES.map((s) => (
+              <div key={s.key} className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                <p className="text-white font-bold text-base">{me.breakdown[s.key]}</p>
+                <p className="text-white/60 text-[10px]">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {me.badges.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              {me.badges.map((b) => (
+                <span key={b.title} title={b.reason ?? ''}
+                  className="text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5"
+                  style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}>
+                  <span>{b.icon}</span>{b.title}{b.fromAdmin && <span className="text-[9px] opacity-70">· admin</span>}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Team ranking */}
+      <Card>
+        <div className="px-5 py-3.5" style={{ borderBottom: '1px solid #E5EAE8' }}>
+          <h3 className="text-sm font-semibold" style={{ color: '#1A2118' }}>{organization ?? 'Team'} rankings</h3>
+          <p className="text-xs mt-0.5" style={{ color: '#9BAEA5' }}>Tap a member to see how their points were earned</p>
+        </div>
+        <div className="divide-y" style={{ borderColor: '#F0EDE4' }}>
+          {rankings.map((r, i) => {
+            const RankMeta = RANK_ICONS[r.rank];
+            const RankIcon = RankMeta?.icon;
+            const isMe     = r.user.id === me?.user.id;
+            const expanded = open === r.user.id;
+            return (
+              <motion.div key={r.user.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.03 }} style={{ background: isMe ? '#F0F8F3' : 'transparent' }}>
+                <button onClick={() => setOpen(expanded ? null : r.user.id)}
+                  className="w-full grid grid-cols-12 gap-2 items-center px-5 py-3 text-left">
+                  <div className="col-span-1">
+                    {RankIcon
+                      ? <RankIcon style={{ color: RankMeta.color, width: 18, height: 18 }} />
+                      : <span className="text-sm font-bold" style={{ color: '#9BAEA5' }}>#{r.rank}</span>}
+                  </div>
+                  <div className="col-span-7 sm:col-span-5 flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
+                      style={{ background: isMe ? '#2D6A4F' : '#8B9E95' }}>
+                      {getInitials(r.user.name)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: '#1A2118' }}>
+                        {r.user.name}{isMe && <span className="text-[10px] font-normal ml-1" style={{ color: '#2D6A4F' }}>(you)</span>}
+                      </p>
+                      <TierPill tier={r.tier} />
+                    </div>
+                  </div>
+                  <div className="col-span-4 hidden sm:flex flex-wrap gap-0.5">
+                    {r.badges.map((b) => <span key={b.title} title={b.title} className="text-base leading-none">{b.icon}</span>)}
+                  </div>
+                  <div className="col-span-4 sm:col-span-2 text-right">
+                    <span className="text-sm font-bold" style={{ color: r.rank <= 3 ? '#2D6A4F' : '#1A2118' }}>{r.points}</span>
+                    <span className="text-[10px] ml-0.5" style={{ color: '#9BAEA5' }}>pts</span>
+                  </div>
+                </button>
+
+                {expanded && (
+                  <div className="px-5 pb-4 space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {POINT_SOURCES.map((s) => (
+                        <div key={s.key} className="rounded-lg px-3 py-2" style={{ background: '#F8FAF8', border: '1px solid #E5EAE8' }}>
+                          <p className="text-sm font-bold" style={{ color: s.color }}>{r.breakdown[s.key]}</p>
+                          <p className="text-[10px]" style={{ color: '#9BAEA5' }}>{s.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs" style={{ color: '#5A7A6D' }}>
+                      {r.totalKg} kg CO₂e · {r.changePct > 0 ? '+' : ''}{r.changePct}% vs previous 30 days ·
+                      {' '}{r.challengesCompleted} challenge{r.challengesCompleted !== 1 ? 's' : ''} completed · logged on {r.activeDays} days
+                    </p>
+                    {r.badges.length > 0 && (
+                      <div className="space-y-1">
+                        {r.badges.map((b) => (
+                          <p key={b.title} className="text-xs" style={{ color: '#3D5247' }}>
+                            <span className="mr-1.5">{b.icon}</span><strong>{b.title}</strong>
+                            {b.reason && <span style={{ color: '#9BAEA5' }}> — {b.reason}</span>}
+                            {b.fromAdmin && <span className="ml-1 text-[10px] font-semibold" style={{ color: '#E07020' }}>(+{b.points} admin award)</span>}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* How points work */}
+      <Card className="p-5">
+        <h3 className="text-sm font-semibold mb-3" style={{ color: '#1A2118' }}>How points are earned</h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {POINT_SOURCES.map((s) => (
+            <div key={s.key}>
+              <p className="text-xs font-bold" style={{ color: s.color }}>{s.label}{s.max ? ` · up to ${s.max}` : ''}</p>
+              <p className="text-[11px] mt-0.5" style={{ color: '#9BAEA5' }}>{s.desc}</p>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] mt-3" style={{ color: '#9BAEA5' }}>
+          Tiers: Bronze 0+ · Silver 180+ · Gold 300+ · Platinum 450+
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
    PAGE SHELL
 ═══════════════════════════════════════════════════ */
 const TABS = [
   { id: 'calculator',  label: 'Calculator',  icon: Calculator },
   { id: 'leaderboard', label: 'Leaderboard', icon: Trophy     },
+  { id: 'awards',      label: 'Awards',      icon: Award      },
 ];
 
 export default function ActivitiesPage() {
@@ -609,7 +801,7 @@ export default function ActivitiesPage() {
       <div>
         <h1 className="text-lg font-bold" style={{ color: '#1A2118' }}>Activities</h1>
         <p className="text-sm mt-0.5" style={{ color: '#9BAEA5' }}>
-          Log your personal carbon footprint · See how you rank against your team
+          Log your carbon footprint · See how you rank and what you've earned
         </p>
       </div>
 
@@ -635,6 +827,7 @@ export default function ActivitiesPage() {
           transition={{ duration: 0.25 }}>
           {tab === 'calculator'  && <CarbonCalculator />}
           {tab === 'leaderboard' && <Leaderboard />}
+          {tab === 'awards'      && <AwardsBoard />}
         </motion.div>
       </AnimatePresence>
     </div>

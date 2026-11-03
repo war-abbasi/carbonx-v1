@@ -16,6 +16,11 @@ model User {
   email          String          @unique
   password       String
   role           String          @default("USER") // USER | ADMIN
+  active         Boolean         @default(true)   // admins can suspend accounts
+  organizationId Int?
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  awards         Award[]         @relation("AwardRecipient")
+  awardsGiven    Award[]         @relation("AwardGiver")
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   carbonEntries  CarbonEntry[]
@@ -25,6 +30,32 @@ model User {
   goals          Goal[]
 
   @@map("users")
+}
+
+model Organization {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  users     User[]
+
+  @@map("organizations")
+}
+
+/* Recognition an admin gives a user; adds to their award points */
+model Award {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation("AwardRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  awardedById Int?
+  awardedBy   User?    @relation("AwardGiver", fields: [awardedById], references: [id], onDelete: SetNull)
+  title       String
+  icon        String   @default("🏅")
+  reason      String?
+  points      Int      @default(50)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@map("awards")
 }
 
 model Forecast {
