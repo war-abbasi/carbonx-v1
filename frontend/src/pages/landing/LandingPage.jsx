@@ -10,6 +10,13 @@ import Navbar    from '../../components/layout/Navbar';
 import Footer    from '../../components/shared/Footer';
 import wardahImg from '../../assets/wardah.jpeg';
 
+/* Team photos: drop <photo-key>.jpg / .jpeg / .png / .webp into src/assets/team/ and it shows up automatically */
+const TEAM_PHOTOS = Object.fromEntries(
+  Object.entries(import.meta.glob('../../assets/team/*.{jpg,jpeg,png,webp}', { eager: true, import: 'default' }))
+    .map(([file, url]) => [file.split('/').pop().replace(/\.\w+$/, '').toLowerCase(), url]),
+);
+const teamPhoto = (key) => TEAM_PHOTOS[key] ?? (key === 'wardah' ? wardahImg : null);
+
 /* ── Animation variants ──────────────────────────── */
 const FV  = { hidden: { opacity: 0, y: 28 }, visible: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.6, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] } }) };
 const SW  = { hidden: {}, visible: { transition: { staggerChildren: 0.1 } } };
@@ -316,11 +323,43 @@ const steps = [
   { num: '03', label: 'Get Insights',    desc: 'View trends, forecasts, hotspots, and actionable reduction recommendations — all in one dashboard.' },
 ];
 
+const mentor = {
+  name:  'Dr. Salma Imtiaz',
+  photo: 'salma',
+  title: 'Associate Professor and Chairperson, Department of Software Engineering, IIUI',
+  note:  'Supervised CarbonX from first requirements to deployment, and guided the October 2026 awareness campaign across departments.',
+};
+
 const team = [
-  { name: 'Wardah Zia Abbasi', role: 'Full Stack AI Engineer', color: 'var(--accent)' },
-  { name: 'Zoha Latif',        role: 'ML & Backend Engineer', color: 'var(--accent-warm)' },
-  { name: 'Dr. Salma Imtiaz',  role: 'Project Supervisor',    color: '#4A7FA8', supervisor: true },
+  { name: 'Wardah Zia Abbasi',   photo: 'wardah',  batch: 'BSSE-F22', lead: true },
+  { name: 'Zoha Latif',          photo: 'zoha',    batch: 'BSSE-F22' },
+  { name: 'Areesha Khawar',      photo: 'areesha', batch: 'BSSE-F22' },
+  { name: 'Tooba Zainab',        photo: 'tooba',   batch: 'BSSE-F23' },
+  { name: 'Ayesha Shafiq Malik', photo: 'ayesha',  batch: 'BSSE-F23' },
+  { name: 'Mahad Zulfiqar',      photo: 'mahad',   batch: 'BSSE-F23' },
+  { name: 'Tayyaba Zahid',       photo: 'tayyaba', batch: 'BSSE-F23' },
+  { name: 'Alishba Amin',        photo: 'alishba', batch: 'BSSE-F23' },
+  { name: 'Haleema Sadia',       photo: 'haleema', batch: 'BSSE-F23' },
+  { name: 'Amber Imtiaz',        photo: 'amber',   batch: 'BSSE-F23' },
 ];
+
+const initialsOf = (name) => name.replace(/^Dr\.\s*/, '').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+
+/* Round portrait with a green ring; shows initials until a photo is added */
+function TeamAvatar({ name, photo, size }) {
+  const src = teamPhoto(photo);
+  return (
+    <div className="rounded-full p-[3px] mx-auto flex-shrink-0"
+      style={{ width: size, height: size, background: 'linear-gradient(135deg, #52B788, #1A5229)' }}>
+      <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center"
+        style={{ background: 'var(--bg-elevated)', border: '3px solid var(--bg-card)' }}>
+        {src
+          ? <img src={src} alt={name} className="w-full h-full object-cover" loading="lazy" />
+          : <span className="font-semibold" style={{ color: 'var(--accent)', fontSize: size * 0.28 }}>{initialsOf(name)}</span>}
+      </div>
+    </div>
+  );
+}
 
 const pakistanFacts = [
   { icon: Droplets,      label: '33M Displaced',      desc: 'By the catastrophic 2022 monsoon floods — the worst in recorded history' },
@@ -465,20 +504,43 @@ export default function LandingPage() {
           <motion.div initial={{ opacity: 0, y: 32 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 0.7 }}>
             <SectionLabel center>The Team</SectionLabel>
             <h2 className="section-title text-3xl text-center mb-10">Meet the builders</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-              {team.map((member) => (
-                <div key={member.name} className="glass-card rounded-2xl p-9 text-center glass-card-hover">
-                  <div className="w-32 h-32 rounded-full overflow-hidden mx-auto mb-6 ring-2" style={{ ringColor: member.color, boxShadow: `0 0 0 4px ${member.color}44` }}>
-                    <img
-                      src={wardahImg}
-                      alt={member.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <p className="font-semibold text-lg mb-1" style={{ color: 'var(--text)' }}>{member.name}</p>
-                  <p className="text-sm font-medium" style={{ color: member.color }}>{member.role}</p>
+
+            <div className="max-w-5xl mx-auto">
+              {/* Faculty mentor */}
+              <div className="rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-center gap-6 text-center sm:text-left mb-12"
+                style={{ background: 'linear-gradient(135deg, #1A5229 0%, #123D20 100%)', boxShadow: '0 12px 40px rgba(18, 61, 32, 0.25)' }}>
+                <TeamAvatar name={mentor.name} photo={mentor.photo} size={128} />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] mb-1.5" style={{ color: '#7FD69B' }}>
+                    Faculty Mentor and Supervisor
+                  </p>
+                  <p className="text-2xl font-bold text-white mb-1">{mentor.name}</p>
+                  <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,0.78)' }}>{mentor.title}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.68)' }}>{mentor.note}</p>
                 </div>
-              ))}
+              </div>
+
+              {/* Students */}
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] mb-8 text-center sm:text-left" style={{ color: 'var(--accent)' }}>
+                Team Members · Department of Software Engineering
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-10">
+                {team.map((member, i) => (
+                  <motion.div key={member.name} className="text-center"
+                    initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                    transition={{ duration: 0.45, delay: i * 0.05 }}>
+                    <TeamAvatar name={member.name} photo={member.photo} size={112} />
+                    <p className="font-semibold text-sm mt-3" style={{ color: 'var(--text)' }}>{member.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{member.batch}</p>
+                    {member.lead && (
+                      <span className="inline-block mt-2 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full text-white"
+                        style={{ background: '#2B9A4C' }}>
+                        Team Lead
+                      </span>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </motion.div>
         </div>
